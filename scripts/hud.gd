@@ -58,12 +58,12 @@ func chef_cam() -> Camera3D:
 	return %ChefCam
 
 ## 1인칭 셰프 화면 요소 (가운데 점, Space 안내, 내 말, 조리 손맛 창)
-func enable_fp(chef: Node) -> void:
+func enable_fp(chef: Node, left_half := false) -> void:
 	var fp := preload("res://scenes/fp_hud.tscn").instantiate()
 	add_child(fp)
 	move_child(fp, 1)  # 분할 화면 위, 나머지 창 아래
-	if mode == "duo":
-		fp.anchor_right = 0.5  # 왼쪽 셰프 화면에만
+	if left_half:
+		fp.anchor_right = 0.5  # 둘이서: 왼쪽 셰프 화면에만
 	fp.chef = chef
 
 func banner(text: String) -> void:

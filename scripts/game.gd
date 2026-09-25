@@ -120,7 +120,7 @@ func _ready() -> void:
 		fp_cam.fov = 72.0
 		fp_cam.near = 0.05
 		chef.set_look(0.45, -0.2)  # 조리대 쪽을 보고 시작
-		hud.enable_fp(chef)
+		hud.enable_fp(chef, mode == "duo")
 	if guest and my_role == "chef":
 		chef.local_look = true
 	hud.setup(self, mode)
