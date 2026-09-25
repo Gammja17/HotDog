@@ -496,5 +496,5 @@ func _tone_down_for_web() -> void:
 	if not OS.has_feature("web"):
 		return
 	var env: Environment = $Truck/Env.environment
-	env.ambient_light_energy *= 0.75
-	$Truck/Sun.light_energy *= 0.75
+	env.ambient_light_energy *= 0.6
+	$Truck/Sun.light_energy *= 0.62
