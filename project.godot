@@ -20,7 +20,7 @@ window/stretch/mode="canvas_items"
 
 [gui]
 
-theme/custom_font="res://assets/ui/font.tres"
+theme/custom_font="res://assets/fonts/Jua-Regular.ttf"
 
 [layer_names]
 
