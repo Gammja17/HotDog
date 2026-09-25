@@ -25,6 +25,8 @@ var room_code := ""
 # 방장 쪽: 손님이 보낸 입력
 var remote_move := Vector2.ZERO
 var remote_look := Vector2.ZERO   # 손님이 셰프일 때: (몸 좌우, 고개 위아래)
+var remote_cook: Array = []       # 손님 셰프가 자기 화면에서 판정한 손맛 결과 (true = 초록 칸)
+var _last_cook := {"g": 0, "b": 0}
 var remote_presses := {"act": 0, "skill": 0}
 var _last_counts := {"a": 0, "s": 0}
 
@@ -237,6 +239,8 @@ func _on_paired() -> void:
 	remote_move = Vector2.ZERO
 	remote_presses = {"act": 0, "skill": 0}
 	_last_counts = {"a": 0, "s": 0}
+	remote_cook.clear()
+	_last_cook = {"g": 0, "b": 0}
 	paired.emit()
 	if is_host:
 		# 방장이 판을 연다. 손님은 남은 역할을 맡는다
@@ -252,6 +256,12 @@ func _handle(d: Dictionary) -> void:
 			remote_move = Vector2(d.mx, d.my)
 			if d.has("yw"):
 				remote_look = Vector2(d.yw, d.pt)
+			if d.has("cg"):
+				for i in maxi(int(d.cg) - _last_cook.g, 0):
+					remote_cook.append(true)
+				for i in maxi(int(d.cb) - _last_cook.b, 0):
+					remote_cook.append(false)
+				_last_cook = {"g": int(d.cg), "b": int(d.cb)}
 			var a := int(d.a)
 			var s := int(d.s)
 			remote_presses.act += maxi(a - _last_counts.a, 0)

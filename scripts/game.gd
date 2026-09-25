@@ -63,12 +63,15 @@ var net_customers := {}      # 손님 쪽: 손님 id → 인형
 var next_customer_id := 1
 var in_a := 0
 var in_s := 0
+var in_cg := 0   # 손님 셰프: 초록 칸에서 누른 횟수
+var in_cb := 0   # 손님 셰프: 칸 밖에서 누른 횟수
 var in_t := 0.0
 var last_in := Vector2.ZERO
 var last_look := Vector2.ZERO
 
 var fp_cam: Camera3D = null   # 이 화면에서 1인칭 셰프 눈으로 보는 카메라
 var sizzle: AudioStreamPlayer3D
+var pan_sausage: Node3D       # 굽는 동안 팬 위에 올라가는 소시지
 
 func _ready() -> void:
 	for st in get_tree().get_nodes_in_group("station"):
@@ -408,7 +411,20 @@ func _guest_process(delta: float) -> void:
 			chef.look_at_work(delta)  # 방장과 똑같이 조리대만 본다
 		look = Vector2(chef.rotation.y, chef.pitch)
 		changed = changed or look.distance_to(last_look) > 0.01
-	if Input.is_action_just_pressed("p1_act") or (Session.args.has("fake-act") and Engine.get_process_frames() % 60 == 0):
+	var pressed_act := Input.is_action_just_pressed("p1_act") or (Session.args.has("fake-act") and Engine.get_process_frames() % 60 == 0)
+	if my_role == "chef" and chef.cook_kind != "" and chef.work_left > 0.0:
+		# 조리 중: 바늘은 이 화면에서 움직이고, 판정도 여기서 해서 결과만 보낸다
+		chef.cook_t += delta
+		chef.cook_lock -= delta
+		chef.cook_needle = pingpong(chef.cook_t * chef.COOK[chef.cook_kind].speed, 1.0)
+		if pressed_act and chef.cook_lock <= 0.0:
+			chef.cook_lock = chef.COOK_LOCK
+			if chef.cook_hit():
+				in_cg += 1
+			else:
+				in_cb += 1
+			changed = true
+	elif pressed_act:
 		in_a += 1
 		changed = true
 	if Input.is_action_just_pressed("p1_skill"):
@@ -419,7 +435,7 @@ func _guest_process(delta: float) -> void:
 		in_t = 0.05
 		last_in = v
 		last_look = look
-		Net.send({"k": "in", "mx": v.x, "my": v.y, "a": in_a, "s": in_s, "yw": look.x, "pt": look.y})
+		Net.send({"k": "in", "mx": v.x, "my": v.y, "a": in_a, "s": in_s, "yw": look.x, "pt": look.y, "cg": in_cg, "cb": in_cb})
 	_update_highlights()
 	hud.refresh()
 
@@ -531,10 +547,22 @@ func _setup_audio() -> void:
 	sizzle.finished.connect(func(): sizzle.play())  # 굽는 동안 계속
 	holder.add_child(sizzle)
 	sizzle.global_position = stations["grill"].global_position + Vector3(0, 1.0, -0.8)
+	pan_sausage = preload("res://assets/food/sausage.glb").instantiate()
+	pan_sausage.scale = Vector3.ONE * 0.9
+	pan_sausage.visible = false
+	holder.add_child(pan_sausage)
+	pan_sausage.global_position = Vector3(-3.55, 1.0, -3.3)
 
 ## 그릴에서 굽는 동안 지글지글 (손님 화면은 받은 셰프 상태로 판단)
 func _update_sizzle() -> void:
 	var on: bool = chef.work_kind == "grill" and chef.work_left > 0.0
+	# 팬 위 소시지: 굽는 동안 보이고, 잘 누를 때마다 뒤집힌다. 익을수록 살짝 커지며 통통해진다
+	pan_sausage.visible = on
+	if on:
+		pan_sausage.rotation.z = lerp_angle(pan_sausage.rotation.z, PI * chef.cook_flips, 0.3)
+		pan_sausage.position.y = 1.0 + (0.06 if absf(angle_difference(pan_sausage.rotation.z, PI * chef.cook_flips)) > 0.3 else 0.0)
+		var done: float = 1.0 - chef.work_left / maxf(chef.work_total, 0.01)
+		pan_sausage.scale = Vector3.ONE * (0.85 + 0.15 * done)
 	if on and not sizzle.playing:
 		sizzle.play()
 	elif not on and sizzle.playing:

@@ -11,12 +11,10 @@ func _run() -> void:
 	g.chef.global_position = g.stations["grill"].global_position
 	g.chef.set_hand("bun")
 	g.chef.act()
-	await create_timer(1.4).timeout
+	await create_timer(1.0).timeout
+	g.chef.cook_lock = 0.0
+	g.chef.cook_needle = g.chef.cook_zone
+	g.chef.act()
+	await create_timer(0.1).timeout
 	get_root().get_texture().get_image().save_png("res://shot_cook.png")
-	g.chef.work_left = 0.0
-	g.chef.cook_kind = ""
-	g.chef.global_position = Vector3(1.5, 0, 3.0)
-	g.chef.set_look(PI * 0.85, -0.3)
-	await create_timer(0.6).timeout
-	get_root().get_texture().get_image().save_png("res://shot_room.png")
 	quit()

@@ -41,6 +41,7 @@ func _run() -> void:
 	chef.cook_needle = chef.cook_zone
 	chef.act()
 	check(chef.work_left < left0 - 1.0, "초록 칸에서 누르면 빨리 익는다")
+	await wait(0.4)  # 연타 방지 시간
 	left0 = chef.work_left
 	chef.cook_needle = fmod(chef.cook_zone + 0.5, 1.0)
 	chef.act()

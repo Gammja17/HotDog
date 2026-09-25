@@ -70,6 +70,12 @@ var cook_needle := 0.0            # 0~1 왕복
 var cook_zone := 0.5              # 초록 칸 가운데
 var cook_flash := ""              # "좋아!" / "앗, 탔다!" 잠깐 표시
 var cook_flash_t := 0.0
+var cook_t := 0.0                 # 조리 시작 뒤 지난 시간 (바늘 위치는 이것으로 정한다)
+var cook_lock := 0.0              # 연타 방지: 한 번 누르면 잠깐 무시
+var cook_penalty := 0.0           # 이번 조리에서 탄 만큼 늘어난 시간 (상한 있음)
+var cook_flips := 0               # 초록 칸에서 누른 횟수 (팬 위 소시지가 뒤집힌다)
+const COOK_LOCK := 0.35
+const COOK_MAX_PENALTY := 0.4     # 원래 시간의 40%까지만 늦어진다 (반드시 끝난다)
 
 @onready var model: Node3D = $Model
 @onready var agent: NavigationAgent3D = $Agent
@@ -193,6 +199,10 @@ func _start_work(kind: String, done: Callable) -> void:
 	if fp and COOK.has(kind):
 		cook_kind = kind
 		cook_needle = 0.0
+		cook_t = 0.0
+		cook_lock = 0.0
+		cook_penalty = 0.0
+		cook_flips = 0
 		cook_zone = randf_range(0.35, 0.8)
 		work_total = COOK[kind].base
 		work_left = work_total
@@ -200,20 +210,38 @@ func _start_work(kind: String, done: Callable) -> void:
 
 ## 조리 중 Space: 바늘이 초록 칸이면 확 익고, 아니면 조금 탄다(늦어진다)
 func cook_press() -> void:
+	if cook_lock > 0.0:
+		return
+	cook_lock = COOK_LOCK
+	apply_cook_result(cook_hit())
+
+## 지금 바늘이 초록 칸 안인가 (온라인 손님은 자기 화면 바늘로 직접 판정한다)
+func cook_hit() -> bool:
+	return absf(cook_needle - cook_zone) <= COOK[cook_kind].zone / 2.0
+
+func apply_cook_result(good: bool) -> void:
+	if cook_kind == "":
+		return
 	var c: Dictionary = COOK[cook_kind]
-	if absf(cook_needle - cook_zone) <= c.zone / 2.0:
-		work_left -= c.good
+	if good:
+		# 0 아래로 내리면 완성 처리를 건너뛰니, 다음 프레임에 끝나도록 살짝 남긴다
+		work_left = maxf(work_left - c.good, 0.001)
 		cook_flash = "좋아!"
+		cook_flips += 1
 		cook_zone = randf_range(0.2, 0.8)
 	else:
-		work_left = minf(work_left + c.bad, work_total)
-		cook_flash = "앗, 탔다!"
-	cook_flash_t = 0.6
+		var add := minf(c.bad, c.base * COOK_MAX_PENALTY - cook_penalty)
+		cook_penalty += maxf(add, 0.0)
+		work_left += maxf(add, 0.0)
+		cook_flash = "앗, 탔다! 초록 칸을 노려서 한 번만!"
+	cook_flash_t = 0.8
 
 func _tick_work(delta: float) -> void:
 	work_left -= delta
 	if cook_kind != "":
-		cook_needle = pingpong(Time.get_ticks_msec() / 1000.0 * COOK[cook_kind].speed, 1.0)
+		cook_t += delta
+		cook_lock -= delta
+		cook_needle = pingpong(cook_t * COOK[cook_kind].speed, 1.0)
 		cook_flash_t -= delta
 	var n := int(8.0 * (1.0 - work_left / work_total))
 	bar_label.text = "=".repeat(clampi(n, 0, 8)) + "-".repeat(clampi(8 - n, 0, 8))
@@ -407,6 +435,10 @@ func _player(delta: float) -> void:
 		# 한 컴퓨터 둘이서: 방향키 좌우는 몸 돌리기, 위아래는 걷기
 		set_look(rotation.y - v.x * 2.6 * delta, pitch)
 		v = Vector2(0, v.y)
+	if prefix == "net_":
+		# 온라인 손님이 자기 화면에서 판정한 손맛 결과
+		while not Net.remote_cook.is_empty():
+			apply_cook_result(Net.remote_cook.pop_front())
 	if _pressed("act"):
 		act()
 	if _pressed("skill") and work_left <= 0.0:
@@ -768,7 +800,7 @@ func net_state() -> Dictionary:
 		"a": ap.get_meta("cur", ["Idle", 1.0]) if ap else ["Idle", 1.0],
 		"h": hand, "hb": hand_bitten, "sy": say_label.text, "b": bar_label.text, "cd": call_cd,
 		"pt": pitch, "wk": [work_kind, work_left, work_total, work_target.x, work_target.y, work_target.z],
-		"ck": [cook_kind, cook_needle, cook_zone, cook_flash, cook_flash_t],
+		"ck": [cook_kind, cook_t, cook_zone, cook_flash, cook_flash_t, cook_flips],
 	}
 
 func apply_net(d: Dictionary, snap: bool) -> void:
@@ -783,11 +815,13 @@ func apply_net(d: Dictionary, snap: bool) -> void:
 	work_left = d.wk[1]
 	work_total = d.wk[2]
 	work_target = Vector3(d.wk[3], d.wk[4], d.wk[5])
+	if d.ck[0] != cook_kind or absf(d.ck[1] - cook_t) > 0.3:
+		cook_t = d.ck[1]  # 손님 쪽은 바늘을 스스로 움직이다가, 많이 어긋날 때만 맞춘다
 	cook_kind = d.ck[0]
-	cook_needle = d.ck[1]
 	cook_zone = d.ck[2]
 	cook_flash = d.ck[3]
 	cook_flash_t = d.ck[4]
+	cook_flips = int(d.ck[5])
 	Anim.play(ap, d.a[0], d.a[1])
 	if d.h != hand or d.hb != hand_bitten:
 		set_hand(d.h, d.hb)
