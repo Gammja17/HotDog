@@ -27,8 +27,8 @@ var remote_move := Vector2.ZERO
 var remote_look := Vector2.ZERO   # 손님이 셰프일 때: (몸 좌우, 고개 위아래)
 var remote_cook: Array = []       # 손님 셰프가 자기 화면에서 판정한 손맛 결과 (true = 초록 칸)
 var _last_cook := {"g": 0, "b": 0}
-var remote_presses := {"act": 0, "skill": 0}
-var _last_counts := {"a": 0, "s": 0}
+var remote_presses := {"act": 0, "skill": 0, "bark": 0}
+var _last_counts := {"a": 0, "s": 0, "b": 0}
 
 # 손님 쪽: 가장 최근 화면 상태
 var snapshot = null
@@ -237,8 +237,8 @@ func _on_paired() -> void:
 	_join_t = -1.0
 	_ws_close()  # 짝이 지어졌으니 중개 서버는 이제 필요 없다 (방도 닫힌다)
 	remote_move = Vector2.ZERO
-	remote_presses = {"act": 0, "skill": 0}
-	_last_counts = {"a": 0, "s": 0}
+	remote_presses = {"act": 0, "skill": 0, "bark": 0}
+	_last_counts = {"a": 0, "s": 0, "b": 0}
 	remote_cook.clear()
 	_last_cook = {"g": 0, "b": 0}
 	paired.emit()
@@ -264,9 +264,11 @@ func _handle(d: Dictionary) -> void:
 				_last_cook = {"g": int(d.cg), "b": int(d.cb)}
 			var a := int(d.a)
 			var s := int(d.s)
+			var b := int(d.get("bk", 0))
 			remote_presses.act += maxi(a - _last_counts.a, 0)
 			remote_presses.skill += maxi(s - _last_counts.s, 0)
-			_last_counts = {"a": a, "s": s}
+			remote_presses.bark += maxi(b - _last_counts.b, 0)
+			_last_counts = {"a": a, "s": s, "b": b}
 		"snap":
 			snapshot = d
 		"start":

@@ -81,8 +81,8 @@ func _finish() -> void:
 	panel.visible = false
 	Session.mark_tutorial_seen(kind)
 	var body: String = {
-		"chef": "3분 안에 핫도그 10개를 팔면 승리. 강아지를 세 번 잡아 쫓아내도 승리.\n잡힌 강아지는 잠시 뒤 뒷문으로 다시 들어온다.\n멀쩡한 핫도그를 찌르면 손님들이 수군거린다 (별점 -0.5). 확신이 들 때 찌르자!",
-		"dog": "소시지 5개를 먹거나, 사장님이 3분 안에 10개를 못 팔게 방해하면 승리.\n잡혀도 쫓겨났다가 다시 들어올 수 있다. 세 번 잡히면 끝.\n진짜 사장님은 흔적을 쫓아오고, 보이면 쫓아온다. 행운을 빈다!",
+		"chef": "3분 안에 핫도그 10개를 팔면 승리.\n강아지를 잡으면 먹은 소시지를 하나 뱉고 장터로 던져지지만, 금방 다시 온다.\n장터까지 쫓아가면 장사가 멈춘다. 멀쩡한 핫도그를 찌르면 별점 -0.5!",
+		"dog": "소시지 5개를 먹거나, 사장님이 3분 안에 10개를 못 팔게 방해하면 승리.\n장터 테이블에서 먹는 손님 핫도그도 뺏을 수 있고, Q로 짖으면 줄 선 손님이 도망간다.\n잡히면 먹은 소시지를 하나 뱉고 장터로 던져진다. 행운을 빈다!",
 	}[kind]
 	game.hud.show_tutorial_done("연습 끝!", body, kind)
 
@@ -135,7 +135,9 @@ func _chef_steps() -> Array:
 		},
 		{
 			"text": "첫 손님이 왔다! 초록 매트(판매 창구)에서 Space로 건네자.",
-			"enter": func(): game.spawn_customer(),
+			"enter": func():
+				game.spawn_customer()
+				game.customers[-1].global_position = Vector3(5.5, 0, -6.5),  # 연습: 창구 가까이에서 온다
 			"done": func(): return ev.has("served"),
 		},
 		{
@@ -202,7 +204,7 @@ func _dog_steps() -> Array:
 			"hint": func(): return "들킬 뻔했다! 진짜 영업이었으면 쫓아왔을 거다." if not dog.hidden and chef.can_see(dog.body_point()) else "",
 		},
 		{
-			"text": "사장님은 진열대에 올린 핫도그 개수를 기억한다. 빈칸에 숨으면 하나가 늘어 보인다.\n바닥에 숨을 때는 원래 굴러다니던 핫도그 옆이 덜 수상하다.",
+			"text": "사장님은 진열대에 올린 핫도그 개수를 기억한다. 빈칸에 숨으면 하나가 늘어 보인다.\n바닥에 굴러다니는 핫도그는 흙투성이라 못 먹지만, 그 옆에 숨으면 덜 수상하다.",
 			"enter": func():
 				chef.say("핫도그가... 하나 늘었네?" if dog.in_slot() else "저 핫도그... 원래 저기 있었나?", 2.5),
 			"done": func(): return step_t > 6.0,

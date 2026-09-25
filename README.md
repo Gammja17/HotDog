@@ -13,14 +13,22 @@
 | | 이동 | 행동 | 스킬 |
 |---|---|---|---|
 | 혼자 하기 (셰프/강아지) | WASD (셰프는 마우스로 둘러보기, 화면 클릭 / Esc) | Space | E |
-| 둘이서: 강아지 | WASD | Space 변장/나오기 | E 먹기, 숨었을 때 연타하면 꼬리 참기 |
+| 강아지 | WASD | Space 변장/나오기 | E 먹기 (숨었을 때 연타하면 꼬리 참기), Q 짖기 |
 | 둘이서: 셰프 | 방향키 (위아래 걷기, 좌우 돌기) | Enter | 오른쪽 Shift "누가 착한 아이지~?" |
 
 셰프의 Space는 상황에 따라 빵 집기 → 그릴 → 소스 → 진열대에 올리기/집기 → 판매 창구에서 팔기, 그리고 바로 앞 강아지나 수상한 핫도그를 집게로 찌르기.
 
+## 맵
+트럭 안(셰프 구역)과 둘레의 장터(강아지 구역). 트럭 오른쪽 벽의 뒷문으로 드나든다.
+장터에는 스탠드 테이블, 덤불, 나무, 쓰레기통, 옆 가게 천막이 있고, 바닥 핫도그가 28개 굴러다닌다.
+바닥 핫도그는 흙투성이라 먹을 수 없지만 옆에 숨으면 덜 수상하다.
+
 ## 승패
-- 셰프: 3분 안에 핫도그 10개를 팔거나, 강아지를 세 번 잡아 쫓아내면 승리. 잡힌 강아지는 10초 뒤 뒷문으로 다시 들어온다.
+- 셰프: 3분 안에 핫도그 10개를 팔면 승리 (매출로만 이긴다)
 - 강아지: 소시지 5개를 먹거나, 셰프가 3분 안에 10개를 못 팔게 하거나, 별점을 0으로 만들면 승리
+- 강아지를 잡으면 먹은 소시지 하나를 뱉고 장터로 던져진다 (잠깐 어질어질하다가 다시 움직인다)
+- 강아지 먹이: 진열대, 냉장고(트럭 안), 테이블에서 먹는 손님 핫도그(뺏으면 별점 -0.5), 짖어서 손님이 떨어뜨린 핫도그
+- 강아지 Q 짖기: 근처 줄 선 손님이 도망가고(매출 손해), 먹던 손님은 핫도그를 떨어뜨린다. 대신 셰프에게 소리가 들린다
 - 먹다 남긴 핫도그를 팔면 손님이 항의한다 (별점 -1). 멀쩡한 핫도그를 찌르면 손님들이 수군거린다 (별점 -0.5)
 
 ## 개발용
@@ -36,6 +44,6 @@
 ## 에셋
 - 폰트: [도현](https://fonts.google.com/specimen/Do+Hyeon) (OFL)
 - 효과음: [BigSoundBank](https://bigsoundbank.com) (CC0 실제 녹음), [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (CC0). 자세한 목록은 `assets/sfx/CREDITS.txt`
-- 3D 모델 (모두 CC0):
+- 3D 모델 (모두 CC0): [Kenney Nature Kit](https://kenney.nl/assets/nature-kit) (장터 나무, 덤불, 울타리, 천막)
 - [Kenney Food Kit](https://kenney.nl/assets/food-kit), [Kenney Furniture Kit](https://kenney.nl/assets/furniture-kit)
 - [Quaternius Dog](https://poly.pizza/m/2kUk0QqpCg), [Quaternius Animated Human](https://poly.pizza/m/c3Ibh9I3udk)

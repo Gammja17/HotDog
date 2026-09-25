@@ -1,5 +1,7 @@
 extends SceneTree
-# 트럭 내부 맵(scenes/truck.tscn)을 만드는 도구.
+# 트럭 + 바깥 장터 맵(scenes/truck.tscn)을 만드는 도구.
+# 트럭 안(x -6..6, z -4..4)은 셰프 구역, 둘레의 장터(x -14..15, z -16..8)는 강아지 구역.
+# 트럭 오른쪽 벽에 뒷문(z 1.9..3.3)이 있어 강아지가 드나든다.
 # 실행: godot --headless --path . -s tools/build_truck.gd
 # 가구 배치를 바꾸고 싶으면 여기 좌표를 고치고 다시 실행한다. (에디터에서 직접 고쳐도 된다)
 
@@ -54,6 +56,7 @@ func _build() -> void:
 	_kitchen()
 	_rack()
 	_clutter()
+	_plaza()
 	_markers()
 
 	await process_frame
@@ -149,22 +152,30 @@ func _floor() -> void:
 			tile.material_override = floor_a if (ix + iz) % 2 == 0 else floor_b
 			tile.position = Vector3(-5 + ix * 2, 0.0, -3 + iz * 2)
 			_add(top, tile)
-	_box_body("Ground", nav, Vector3(0, -0.1, 0), Vector3(12, 0.2, 8))
-	var street := MeshInstance3D.new()
-	street.name = "Street"
+	_box_body("Ground", nav, Vector3(0.5, -0.1, -4), Vector3(29, 0.2, 24))
+	var plaza := MeshInstance3D.new()
+	plaza.name = "PlazaFloor"
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(40, 30)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color("#454955")
-	pm.material = mat
-	street.mesh = pm
-	street.position = Vector3(0, -0.02, 0)
-	_add(top, street)
+	pm.size = Vector2(29, 24)
+	plaza.mesh = pm
+	plaza.material_override = _mat(Color("#8f8778"))
+	plaza.position = Vector3(0.5, -0.01, -4)
+	_add(top, plaza)
+	var grass := MeshInstance3D.new()
+	grass.name = "Grass"
+	var gm := PlaneMesh.new()
+	gm.size = Vector2(70, 60)
+	grass.mesh = gm
+	grass.material_override = _mat(Color("#4f6b3c"))
+	grass.position = Vector3(0.5, -0.03, -4)
+	_add(top, grass)
 
 func _walls() -> void:
 	var wall_col := Color("#e2a63a")  # 노란 푸드트럭 벽 (바닥보다 진하게)
 	_box_body("WallLeft", nav, Vector3(-6.15, 0.6, 0), Vector3(0.3, 1.2, 8.3), wall_col)
-	_box_body("WallRight", nav, Vector3(6.15, 0.6, 0), Vector3(0.3, 1.2, 8.3), wall_col)
+	# 오른쪽 벽: 뒷문(z 1.9..3.3)을 비워 둔다
+	_box_body("WallRightA", nav, Vector3(6.15, 0.6, -1.125), Vector3(0.3, 1.2, 6.05), wall_col)
+	_box_body("WallRightB", nav, Vector3(6.15, 0.6, 3.725), Vector3(0.3, 1.2, 0.85), wall_col)
 	_box_body("WallBackL", nav, Vector3(-3.075, 1.1, -4.15), Vector3(6.15, 2.2, 0.3), wall_col)
 	_box_body("WallBackR", nav, Vector3(4.9, 1.1, -4.15), Vector3(2.5, 2.2, 0.3), wall_col)
 	# 앞쪽은 카메라 쪽이라 벽 대신 낮은 턱과 보이지 않는 막
@@ -214,7 +225,9 @@ func _fp_shell() -> void:
 	var parts := [
 		["Front", Vector3(0, 1.4, 4.15), Vector3(12.6, 2.8, 0.3), wall],
 		["LeftUpper", Vector3(-6.15, 2.0, 0), Vector3(0.3, 1.6, 8.3), wall],
-		["RightUpper", Vector3(6.15, 2.0, 0), Vector3(0.3, 1.6, 8.3), wall],
+		["RightUpperA", Vector3(6.15, 2.0, -1.125), Vector3(0.3, 1.6, 6.05), wall],
+		["RightUpperB", Vector3(6.15, 2.0, 3.725), Vector3(0.3, 1.6, 0.85), wall],
+		["DoorTop", Vector3(6.15, 2.6, 2.6), Vector3(0.3, 0.4, 1.4), wall],
 		["BackLeftUpper", Vector3(-3.075, 2.5, -4.15), Vector3(6.15, 0.6, 0.3), wall],
 		["BackRightUpper", Vector3(4.9, 2.5, -4.15), Vector3(2.5, 0.6, 0.3), wall],
 		["Ceiling", Vector3(0, 2.85, 0), Vector3(12.6, 0.1, 8.6), Color("#8c6a3a")],
@@ -340,7 +353,7 @@ func _rack() -> void:
 	_add(rack, f)
 
 func _clutter() -> void:
-	_prop("res://assets/furniture/trashcan.glb", "Trash", nav, Vector3(5.3, 0, 2.2), 0, 1.3)
+	_prop("res://assets/furniture/trashcan.glb", "Trash", nav, Vector3(5.3, 0, 0.4), 0, 1.3)
 	_prop("res://assets/furniture/cardboardBoxClosed.glb", "Box1", nav, Vector3(5.0, 0, -1.2), 10)
 	_prop("res://assets/furniture/cardboardBoxOpen.glb", "Box2", nav, Vector3(4.6, 0, -2.2), -15)
 	_prop("res://assets/furniture/cardboardBoxClosed.glb", "Box3", nav, Vector3(-5.6, 0, 1.4), 5)
@@ -348,17 +361,76 @@ func _clutter() -> void:
 	_prop("res://assets/furniture/stoolBar.glb", "Stool1", nav, Vector3(3.0, 0, 1.8), 30)
 	_prop("res://assets/furniture/stoolBar.glb", "Stool2", nav, Vector3(-2.8, 0, 2.6), -10)
 
+const TABLES := [Vector3(-8.0, 0, -8.0), Vector3(-3.5, 0, -10.5), Vector3(2.5, 0, -11.0), Vector3(8.0, 0, -9.0), Vector3(10.8, 0, -3.8)]
+const N := 3.0  # Nature Kit 배율 (덤불 0.24 → 0.72)
+
+## 트럭 밖 장터: 스탠드 테이블, 덤불, 나무, 쓰레기통, 옆 가게 천막, 가로등, 울타리
+func _plaza() -> void:
+	var p := Node3D.new()
+	p.name = "Plaza"
+	_add(top, p)
+	for i in TABLES.size():
+		_prop("res://assets/plaza/tableRound.glb", "Table%d" % i, nav, TABLES[i] + Vector3(-0.69, 0.54, 0.8), 0, S)
+	_prop("res://assets/plaza/bench.glb", "Bench0", nav, Vector3(-11.8, 0, -4.4), 90)
+	_prop("res://assets/plaza/bench.glb", "Bench1", nav, Vector3(12.8, 0, 4.4), -90)
+	_prop("res://assets/plaza/bench.glb", "Bench2", nav, Vector3(-0.4, 0, 7.2), 180)
+	var bins := [Vector3(-7.0, 0, -5.2), Vector3(7.2, 0, -5.5), Vector3(13.0, 0, -13.0), Vector3(-12.5, 0, -14.0), Vector3(8.5, 0, 6.4), Vector3(-9.2, 0, 6.2)]
+	for i in bins.size():
+		_prop("res://assets/furniture/trashcan.glb", "Bin%d" % i, nav, bins[i], i * 25, 1.3)
+	var bushes := [Vector3(-12.0, 0, -9.0), Vector3(-6.0, 0, -14.0), Vector3(0.5, 0, -14.5), Vector3(13.5, 0, -7.5),
+		Vector3(13.3, 0, 1.0), Vector3(-12.5, 0, 1.0), Vector3(-9.5, 0, 4.8), Vector3(10.5, 0, 4.8),
+		Vector3(5.0, 0, -7.4), Vector3(-4.0, 0, -6.9), Vector3(-1.0, 0, -8.2), Vector3(6.0, 0, -13.8),
+		Vector3(-13.0, 0, -5.8), Vector3(9.5, 0, -12.2)]
+	var kinds := ["plant_bushLarge", "plant_bush", "plant_bushSmall"]
+	for i in bushes.size():
+		_prop("res://assets/plaza/%s.glb" % kinds[i % 3], "Bush%d" % i, nav, bushes[i], i * 40, N)
+	# 나무: 잎이 넓어서 줄기만 부딪치게
+	var trees := [Vector3(-13.2, 0, -15.2), Vector3(14.2, 0, -15.2), Vector3(-13.2, 0, 7.2), Vector3(14.2, 0, 7.2),
+		Vector3(-10.5, 0, -11.8), Vector3(11.8, 0, -11.0)]
+	for i in trees.size():
+		var t := _prop("res://assets/plaza/%s.glb" % ["tree_default", "tree_oak"][i % 2], "Tree%d" % i, p, trees[i], i * 30, 2.5, false)
+		_box_body("TreeTrunk%d" % i, nav, trees[i] + Vector3(0, 0.8, 0), Vector3(0.45, 1.6, 0.45))
+	# 옆 가게 천막 두 곳 (구경거리이자 가림막)
+	_prop("res://assets/plaza/tent_detailedOpen.glb", "Stall0", nav, Vector3(-10.6, 0, -1.4), 90, 4.0)
+	_prop("res://assets/plaza/tent_detailedOpen.glb", "Stall1", nav, Vector3(4.8, 0, -15.0), 0, 4.0)
+	_prop("res://assets/plaza/pottedPlant.glb", "Pot0", nav, Vector3(7.1, 0, 1.0), 0, S)
+	_prop("res://assets/plaza/pottedPlant.glb", "Pot1", nav, Vector3(7.1, 0, 4.3), 0, S)
+	for i in 3:
+		_prop("res://assets/plaza/lampRoundFloor.glb", "Lamp%d" % i, p, [Vector3(-6.8, 0, -7.4), Vector3(6.9, 0, -7.2), Vector3(-0.2, 0, -12.8)][i], 0, 3.0, false)
+	# 꽃과 돌 (장식)
+	for i in 14:
+		var at := Vector3(randf_range(-13.5, 14.5), 0, randf_range(-15.5, 7.5))
+		if absf(at.x) < 7.0 and absf(at.z) < 5.0:
+			continue
+		_prop("res://assets/plaza/%s.glb" % ["flower_redA", "flower_yellowA", "rock_smallA"][i % 3], "Deco%d" % i, p, at, i * 50, N, false)
+	# 울타리 (보이기만) + 보이지 않는 경계 벽
+	for x in range(-14, 15, 3):
+		_prop("res://assets/plaza/fence_simple.glb", "FenceN%d" % x, p, Vector3(x + 1.5, 0, -16.1), 0, N, false)
+		_prop("res://assets/plaza/fence_simple.glb", "FenceS%d" % x, p, Vector3(x + 1.5, 0, 8.1), 0, N, false)
+	for z in range(-16, 8, 3):
+		if z in [-8]:
+			continue  # 손님이 드나드는 길
+		_prop("res://assets/plaza/fence_simple.glb", "FenceW%d" % z, p, Vector3(-14.1, 0, z + 1.5), 90, N, false)
+		_prop("res://assets/plaza/fence_simple.glb", "FenceE%d" % z, p, Vector3(15.1, 0, z + 1.5), 90, N, false)
+	_box_body("EdgeN", nav, Vector3(0.5, 1.0, -16.3), Vector3(30, 2.0, 0.3))
+	_box_body("EdgeS", nav, Vector3(0.5, 1.0, 8.3), Vector3(30, 2.0, 0.3))
+	_box_body("EdgeW", nav, Vector3(-14.3, 1.0, -4), Vector3(0.3, 2.0, 25))
+	_box_body("EdgeE", nav, Vector3(15.3, 1.0, -4), Vector3(0.3, 2.0, 25))
+
 func _markers() -> void:
 	var g := Node3D.new()
 	g.name = "Markers"
 	_add(top, g)
 	var pts := {
 		"ChefSpawn": Vector3(-2.0, 0, -1.6),
-		"DogSpawn": Vector3(3.6, 0, 2.6),
+		"DogSpawn": Vector3(9.0, 0, 2.6),
+		"DoorInside": Vector3(5.2, 0, 2.6),
+		"DoorOutside": Vector3(7.4, 0, 2.6),
 		"Queue0": Vector3(1.72, 0, -4.9),
 		"Queue1": Vector3(2.9, 0, -5.4),
 		"Queue2": Vector3(4.1, 0, -5.8),
-		"CustomerOut": Vector3(9.0, 0, -6.0),
+		"CustomerOut": Vector3(15.6, 0, -6.5),
+		"CustomerOut2": Vector3(-14.6, 0, -6.5),
 	}
 	for k in pts:
 		var m := Marker3D.new()
@@ -366,20 +438,36 @@ func _markers() -> void:
 		m.position = pts[k]
 		_add(g, m)
 	# 바닥에 굴러다니는 진짜 핫도그 (강아지가 옆에 숨으면 티가 덜 난다)
-	var decoys := {
-		"Decoy0": Vector3(4.5, 0, 2.3),
-		"Decoy1": Vector3(-4.8, 0, 2.2),
-		"Decoy2": Vector3(2.4, 0, 3.0),
-		"Decoy3": Vector3(4.2, 0, -1.4),
-	}
-	for k in decoys:
+	# 트럭 안 6개 + 장터 22개. 강아지는 이 사이에 섞여 숨는다
+	var decoys := [
+		Vector3(4.5, 0, 2.3), Vector3(-4.8, 0, 2.2), Vector3(2.4, 0, 3.0), Vector3(4.2, 0, -1.4),
+		Vector3(-3.8, 0, 0.9), Vector3(3.2, 0, -0.4),
+		Vector3(-7.3, 0, -7.2), Vector3(-8.8, 0, -8.9), Vector3(-3.0, 0, -9.6), Vector3(-4.4, 0, -11.3),
+		Vector3(3.3, 0, -10.2), Vector3(1.8, 0, -11.9), Vector3(8.8, 0, -8.4), Vector3(7.4, 0, -9.9),
+		Vector3(10.2, 0, -4.4), Vector3(-6.5, 0, -5.9), Vector3(6.4, 0, -6.1), Vector3(-11.4, 0, -9.6),
+		Vector3(-5.3, 0, -13.6), Vector3(1.2, 0, -13.9), Vector3(12.8, 0, -7.0), Vector3(12.6, 0, 1.6),
+		Vector3(-11.8, 0, 1.7), Vector3(-8.9, 0, 5.4), Vector3(9.9, 0, 5.4), Vector3(0.8, 0, 6.2),
+		Vector3(12.3, 0, -12.4), Vector3(-11.9, 0, -13.3),
+	]
+	for i in decoys.size():
 		var m := Marker3D.new()
-		m.name = k
-		m.position = decoys[k]
+		m.name = "Decoy%d" % i
+		m.position = decoys[i]
 		m.add_to_group("decoy_spot", true)
 		_add(g, m)
+	# 손님이 핫도그를 들고 서서 먹는 자리 (스탠드 테이블 양옆)
+	for t in TABLES.size():
+		for side in [-1.0, 1.0]:
+			var m := Marker3D.new()
+			m.name = "Eat%d_%d" % [t, 0 if side < 0 else 1]
+			m.position = TABLES[t] + Vector3(side * 1.05, 0, 0.1)
+			m.add_to_group("eat_spot", true)
+			_add(g, m)
 	# AI 강아지가 숨으러 가는 구석
-	var hides := [Vector3(4.6, 0, 1.6), Vector3(-4.9, 0, 1.9), Vector3(2.0, 0, 3.2), Vector3(3.8, 0, -1.0), Vector3(-1.2, 0, 3.2)]
+	var hides := [Vector3(4.6, 0, 1.6), Vector3(-4.9, 0, 1.9), Vector3(2.0, 0, 3.2), Vector3(3.8, 0, -1.0), Vector3(-1.2, 0, 3.2),
+		Vector3(-7.0, 0, -6.6), Vector3(-3.4, 0, -10.2), Vector3(2.8, 0, -11.6), Vector3(8.2, 0, -9.3),
+		Vector3(-11.0, 0, -9.0), Vector3(12.2, 0, -6.6), Vector3(12.0, 0, 2.2), Vector3(-11.2, 0, 2.2),
+		Vector3(-8.4, 0, 5.8), Vector3(9.4, 0, 5.8), Vector3(0.3, 0, -13.4), Vector3(-5.8, 0, -13.2)]
 	for i in hides.size():
 		var m := Marker3D.new()
 		m.name = "Hide%d" % i

@@ -262,6 +262,14 @@ func _near_station(kind: String, dist := 1.3) -> bool:
 static func _flat(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x - b.x, a.z - b.z).length()
 
+## 트럭 안인가 (밖은 장터)
+static func in_truck(p: Vector3) -> bool:
+	return absf(p.x) < 6.1 and absf(p.z) < 4.1
+
+## 트럭 밖 단서는 뒷문 안쪽에서 살펴본다 (셰프는 장사를 버리고 멀리 나가지 않는다)
+func _clamp_to_truck(p: Vector3) -> Vector3:
+	return p if in_truck(p) else game.markers.get_node("DoorInside").global_position
+
 # ---------------------------------------------------------------- 행동 (사람, AI 공용)
 
 ## 스페이스 한 번. 상황에 맞는 행동 하나를 한다.
@@ -404,8 +412,8 @@ func hear(pos: Vector3, radius: float) -> void:
 	if scripted or _flat(global_position, pos) > radius:
 		return
 	if is_ai:
-		say("방금 무슨 소리지?", 1.6)
-		_raise(55.0, pos)
+		say("방금 무슨 소리지?" if in_truck(pos) else "밖에서 개 짖는 소리가...", 1.6)
+		_raise(55.0 if in_truck(pos) else 25.0, pos)
 
 ## 손님이 털 나왔다고 항의했다.
 func on_complaint() -> void:
@@ -523,6 +531,13 @@ func _ai(delta: float) -> void:
 	match mode:
 		"chase":
 			var dog = game.dog
+			# 트럭 밖으로 도망가면 뒷문 밖 조금까지만 쫓는다
+			if not in_truck(dog.global_position) and _flat(global_position, game.markers.get_node("DoorOutside").global_position) > 2.5 and not in_truck(global_position):
+				mode = "work"
+				has_goal = false
+				suspicion = 40.0
+				say("다음에 또 들어오기만 해 봐!", 1.8)
+				return
 			if _flat(global_position, dog.global_position) < 0.9 and not dog.in_slot():
 				game.catch_dog("grab")
 				return
@@ -650,7 +665,11 @@ func _perceive(dt: float) -> void:
 		return
 	var dpos: Vector3 = dog.global_position
 	var sees: bool = can_see(dog.body_point())
-	if not dog.hidden and sees:
+	if not dog.hidden and sees and not in_truck(dpos) and _flat(dpos, game.markers.get_node("DoorOutside").global_position) > 3.0:
+		# 밖에서 어슬렁거리는 건 창문 너머로 보일 뿐, 쫓아 나가지는 않는다
+		if mode == "work" and say_t <= 0.0 and randf() < 0.05:
+			say("저 녀석, 밖에서 어슬렁거리네...", 1.6)
+	elif not dog.hidden and sees:
 		if mode != "chase":
 			say("야! 거기 너!!", 1.6)
 			work_left = 0.0
@@ -670,7 +689,7 @@ func _perceive(dt: float) -> void:
 			has_goal = false
 
 	# 숨은 강아지가 이상한 곳에 있거나 꼬리를 흔들면 눈치챈다
-	if dog.hidden and not dog.in_slot() and sees and mode != "chase":
+	if dog.hidden and not dog.in_slot() and sees and mode != "chase" and in_truck(dpos):
 		var d := _flat(global_position, dpos)
 		var odd: bool = game.nearest_decoy(dpos, 1.0) == null
 		if (odd and d < 5.0) or (dog.tail > 55.0 and d < 4.0):
@@ -708,7 +727,7 @@ func _perceive_traces() -> void:
 
 func _raise(amount: float, clue: Vector3) -> void:
 	suspicion = minf(suspicion + amount, 100.0)
-	last_seen = clue
+	last_seen = _clamp_to_truck(clue)
 
 func _poke_here(p: Vector3) -> void:
 	work_left = 0.0
@@ -731,7 +750,7 @@ func _start_search() -> void:
 func _build_search_list(center: Vector3) -> void:
 	var cands: Array = []
 	for d in game.decoys:
-		if _flat(d.global_position, center) < 5.0:
+		if _flat(d.global_position, center) < 5.0 and in_truck(d.global_position):
 			cands.append(d.global_position)
 	var rack = game.rack
 	if _flat(rack.global_position, center) < 5.0:
@@ -739,7 +758,7 @@ func _build_search_list(center: Vector3) -> void:
 			if rack.items[i] != null:
 				cands.append(rack.slot_pos(i))
 	for m in get_tree().get_nodes_in_group("hide_spot"):
-		if _flat(m.global_position, center) < 4.0:
+		if _flat(m.global_position, center) < 4.0 and in_truck(m.global_position):
 			cands.append(m.global_position)
 	cands.sort_custom(func(a, b): return _flat(a, center) < _flat(b, center))
 	search_list = cands.slice(0, 3)  # 헛찌르면 손해라 확신 가는 곳만

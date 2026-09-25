@@ -18,6 +18,7 @@ func _ready() -> void:
 	_bind("p1_right", [KEY_D])
 	_bind("p1_act", [KEY_SPACE])
 	_bind("p1_skill", [KEY_E])
+	_bind("p1_bark", [KEY_Q])
 	_bind("p2_up", [KEY_UP])
 	_bind("p2_down", [KEY_DOWN])
 	_bind("p2_left", [KEY_LEFT])

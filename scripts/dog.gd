@@ -3,7 +3,8 @@ extends CharacterBody3D
 ## 핫도그로 변장해 숨고, 몰래 소시지를 먹는다. 본능(킁킁, 꼬리)을 못 참으면 들킨다.
 
 const SNIFF_RANGE := 2.4
-const EAT_TIME := {"rack": 1.5, "decoy": 1.5, "fridge": 2.2}
+const EAT_TIME := {"rack": 1.5, "decoy": 1.5, "fridge": 2.2, "customer": 1.5}
+const BARK_CD := 12.0
 const FRIDGE_STOCK := 3
 
 var game: Node
@@ -18,6 +19,7 @@ var tail := 0.0             # 0~100. "착한 아이지~?"를 들으면 오른다
 var tail_pending := 0.0
 var revealed_t := 0.0       # 짖은 뒤 잠깐 셰프 눈에도 보인다
 var fridge_left := FRIDGE_STOCK
+var bark_cd := 0.0
 var stopped := false
 var seen := false
 
@@ -112,7 +114,7 @@ func caught() -> void:
 	tw.tween_property(self, "position:y", position.y + 1.6, 0.35).set_trans(Tween.TRANS_BACK)
 
 ## 쫓겨났다가 뒷문으로 다시 들어온다
-func respawn(at: Vector3) -> void:
+func respawn(at: Vector3, line := "(슬금슬금...)") -> void:
 	stopped = false
 	visible = true
 	hidden = false
@@ -128,7 +130,7 @@ func respawn(at: Vector3) -> void:
 	eat_done = Callable()
 	bar_label.text = ""
 	global_position = at
-	say("(슬금슬금...)", 2.0)
+	say(line, 2.0)
 	ai_has_goal = false
 	ai_start_t = 3.0
 	Anim.play(ap, "Idle")
@@ -182,12 +184,16 @@ func _unhide_visual() -> void:
 
 ## 가까운 먹을 것. {kind, pos, target}
 func _food_near(dist := 1.4) -> Dictionary:
+	# 손님 손에 든 핫도그가 먼저 (바로 옆 바닥 핫도그보다 탐난다)
+	for c in game.eating_customers():
+		if _flat(global_position, c.global_position) < dist:
+			return {"kind": "customer", "pos": c.global_position, "target": c}
 	var rack = game.rack
 	var s: int = rack.nearest(global_position, "hotdog", dist)
 	if s >= 0:
 		return {"kind": "rack", "pos": rack.slot_pos(s), "target": s}
 	for d in game.decoys:
-		if not d.get_meta("bitten") and _flat(global_position, d.global_position) < dist - 0.2:
+		if d.get_meta("edible", false) and not d.get_meta("bitten") and _flat(global_position, d.global_position) < dist - 0.2:
 			return {"kind": "decoy", "pos": d.global_position, "target": d}
 	var fr: Node3D = game.stations["fridge"]
 	if fridge_left > 0 and _flat(global_position, fr.global_position) < dist + 0.1:
@@ -219,6 +225,10 @@ func _finish_eat(f: Dictionary) -> void:
 			rack.set_bitten(f.target, true)
 		"fridge":
 			fridge_left -= 1
+		"customer":
+			if not is_instance_valid(f.target) or not f.target.has_food():
+				return
+			game.customer_robbed(f.target)
 	game.add_trace(global_position + Vector3(randf_range(-0.2, 0.2), 0, randf_range(-0.2, 0.2)), "crumbs")
 	paw_left = 5
 	paw_t = 0.0
@@ -277,7 +287,7 @@ func _smells_food() -> bool:
 				and _flat(global_position, rack.slot_pos(i)) < SNIFF_RANGE:
 			return true
 	for d in game.decoys:
-		if not d.get_meta("bitten") and _flat(global_position, d.global_position) < SNIFF_RANGE:
+		if d.get_meta("edible", false) and not d.get_meta("bitten") and _flat(global_position, d.global_position) < SNIFF_RANGE:
 			return true
 	var fr: Node3D = game.stations["fridge"]
 	if fridge_left > 0 and _flat(global_position, fr.global_position) < SNIFF_RANGE:
@@ -299,6 +309,27 @@ func _burst(text: String, radius: float) -> void:
 	else:
 		game.sfx("sniff", global_position, 3.0, 1.2)
 	game.make_noise(global_position, radius)
+
+## 짖기 (Q): 근처 손님이 겁먹는다. 줄 선 손님은 떠나고(매출 손해), 먹던 손님은 핫도그를 떨어뜨린다.
+## 대신 크게 짖으니 셰프에게 위치가 들린다.
+func bark() -> void:
+	if bark_cd > 0.0 or hidden or eat_left > 0.0 or stopped:
+		return
+	bark_cd = BARK_CD
+	say("왈왈!!", 1.4, true)
+	game.dog_bark(global_position)
+
+## 잡혀서 장터로 던져진다. 잠깐 어질어질하다가 다시 움직인다
+func thrown(to: Vector3) -> void:
+	var tw := create_tween()
+	tw.tween_property(self, "global_position", global_position.lerp(to, 0.5) + Vector3(0, 2.2, 0), 0.35)
+	tw.tween_property(self, "global_position", to, 0.35)
+	await tw.finished
+	say("(어질어질...)", 2.0, true)
+	await get_tree().create_timer(2.0).timeout
+	if game.over:
+		return
+	respawn(to, "(슬금슬금...)")
 
 ## 꼬리 참기: 숨어 있을 때 E 연타
 func hold_tail() -> void:
@@ -325,6 +356,7 @@ func _physics_process(delta: float) -> void:
 	if stopped or puppet:
 		return
 	revealed_t = maxf(revealed_t - delta, 0.0)
+	bark_cd = maxf(bark_cd - delta, 0.0)
 	_instincts(delta)
 	_paws(delta)
 	_sounds(delta)
@@ -339,6 +371,8 @@ func _physics_process(delta: float) -> void:
 		_player()
 
 func _player() -> void:
+	if _pressed("bark"):
+		bark()
 	if _pressed("act"):
 		toggle_hide()
 	if _pressed("skill"):
@@ -503,6 +537,9 @@ func _ai_think(chef) -> void:
 		if not ai_has_goal:
 			_ai_go_hide(chef)
 		return
+	# 셰프가 트럭 안에 있고 근처에 손님이 몰려 있으면 짖어서 쫓아 버린다
+	if bark_cd <= 0.0 and chef.in_truck(chef.global_position) and game.customers_near(global_position, 5.0) >= 2 and randf() < 0.5:
+		bark()
 	if ai_has_goal:
 		return
 	# 먹을 것 고르기: 셰프에게서 멀고 셰프 등 뒤인 것
@@ -531,11 +568,13 @@ func _ai_pick_food(chef) -> Dictionary:
 			var stand := Vector3(p.x, 0, 1.55) if chef.global_position.z < 0.6 else Vector3(p.x, 0, -0.35)
 			opts.append({"stand": stand, "pos": p})
 	for d in game.decoys:
-		if not d.get_meta("bitten"):
+		if d.get_meta("edible", false) and not d.get_meta("bitten"):
 			opts.append({"stand": d.global_position + Vector3(0.5, 0, 0.3), "pos": d.global_position})
 	if fridge_left > 0:
 		var fr: Vector3 = game.stations["fridge"].global_position
 		opts.append({"stand": fr, "pos": fr})
+	for c in game.eating_customers():
+		opts.append({"stand": c.global_position + Vector3(0.6, 0, 0.5), "pos": c.global_position})
 	var best := {}
 	var best_score := -INF
 	for o in opts:

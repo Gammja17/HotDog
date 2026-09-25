@@ -17,14 +17,11 @@ const SFX := {
 const GAME_TIME := 180.0
 const EAT_GOAL := 5
 const SALES_GOAL := 10      # 셰프: 3분 안에 이만큼 팔아야 이긴다
-const CATCH_GOAL := 3       # 셰프: 세 번 잡아 쫓아내도 이긴다
-const DOG_RETURN_TIME := 10.0
+const DOG_CAM_OFFSET := Vector3(0, 10.5, 7.2)  # 강아지 화면 카메라 (강아지를 따라간다)
 const WRONG_POKE_STARS := 0.5
 const MAX_STARS := 5.0
 
 const ENDINGS := {
-	"grab": ["셰프 승리!", "세 번째로 집게에 들린 강아지와 사장님의 눈이 마주쳤다.\n강아지는 오늘은 그만 포기하기로 했다."],
-	"rack": ["셰프 승리!", "진열대에서 집어 든 핫도그가 또 \"왈!\" 하고 짖었다. 벌써 세 번째다.\n강아지는 오늘은 그만 포기하기로 했다."],
 	"sold": ["셰프 승리!", "오늘 매출 목표 달성!\n사장님은 트럭 어딘가에서 들리는 킁킁 소리를 못 들은 척하기로 했다."],
 	"time": ["강아지 승리!", "퇴근 시간인데 매출이 모자라다.\n사장님이 빈 금고를 보며 한숨 쉬는 사이, 트럭 구석에서 트림 소리가 났다."],
 	"full": ["강아지 승리!", "배가 빵빵해진 강아지가 뒷문으로 유유히 빠져나갔다.\n사장님은 아직도 소시지 개수를 세고 있다."],
@@ -63,6 +60,7 @@ var net_customers := {}      # 손님 쪽: 손님 id → 인형
 var next_customer_id := 1
 var in_a := 0
 var in_s := 0
+var in_b := 0    # 손님 강아지: 짖기 누른 횟수
 var in_cg := 0   # 손님 셰프: 초록 칸에서 누른 횟수
 var in_cb := 0   # 손님 셰프: 칸 밖에서 누른 횟수
 var in_t := 0.0
@@ -70,6 +68,9 @@ var last_in := Vector2.ZERO
 var last_look := Vector2.ZERO
 
 var fp_cam: Camera3D = null   # 이 화면에서 1인칭 셰프 눈으로 보는 카메라
+var follow_cam: Camera3D = null   # 강아지를 따라가는 위쪽 카메라
+var eat_spots := {}           # 장터 테이블 자리 → 먹는 손님 (없으면 null)
+var base_decoys := 0          # 맵에 처음부터 있던 바닥 핫도그 수 (그 뒤는 손님이 떨어뜨린 것)
 var sizzle: AudioStreamPlayer3D
 var pan_sausage: Node3D       # 굽는 동안 팬 위에 올라가는 소시지
 
@@ -101,7 +102,11 @@ func _ready() -> void:
 		$Decoys.add_child(h)
 		h.global_position = m.global_position
 		h.rotation.y = tilt[decoys.size() % tilt.size()]
+		h.set_meta("edible", false)  # 바닥에 굴러다니던 건 흙투성이: 숨는 곳일 뿐, 먹지 않는다
 		decoys.append(h)
+	base_decoys = decoys.size()
+	for m in get_tree().get_nodes_in_group("eat_spot"):
+		eat_spots[m] = null
 	for i in [0, 4]:
 		rack.place(i, RackScript.new_hotdog())
 	chef.expected_rack = 2
@@ -121,10 +126,12 @@ func _ready() -> void:
 			fp_cam = cam
 		"dog", "watch", "tut_dog":
 			cam.cull_mask = 1 | 2 | 4
+			follow_cam = cam
 		"duo":
 			cam.current = false
 			hud.setup_split(cam.global_transform)
 			fp_cam = hud.chef_cam()
+			follow_cam = hud.dog_cam()
 	if fp_cam:
 		fp_cam.cull_mask = 1 | 8  # 레이어 8 = 1인칭 셰프 화면에만 보이는 작은 간판
 		fp_cam.fov = 72.0
@@ -141,7 +148,7 @@ func _ready() -> void:
 	else:
 		banner({
 			"chef": "3분 안에 핫도그 10개를 팔자! 그런데 오늘따라 뭔가 이상하다...",
-			"dog": "소시지 5개를 먹거나, 사장님이 10개를 못 팔게 방해하자!",
+			"dog": "소시지 5개를 먹거나, 사장님이 10개를 못 팔게 방해하자! (Q로 짖으면 손님이 도망간다)",
 			"duo": "왼쪽 셰프(방향키) vs 오른쪽 강아지(WASD)",
 		}.get(mode, ""))
 	# 내비게이션 맵이 준비될 때까지 AI를 한 프레임 멈춘다
@@ -155,6 +162,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if fp_cam:
 		fp_cam.global_transform = chef.eye.global_transform
+	if follow_cam:
+		_follow_dog(delta)
 	_update_sizzle()
 	if guest:
 		_guest_process(delta)
@@ -200,8 +209,11 @@ func _update_highlights() -> void:
 func _queue_pos(i: int) -> Vector3:
 	return markers.get_node("Queue%d" % i).global_position
 
-func customer_exit() -> Vector3:
-	return markers.get_node("CustomerOut").global_position
+## 가까운 장터 출입구 (동쪽, 서쪽)
+func customer_exit(from := Vector3(99, 0, 0)) -> Vector3:
+	var a: Vector3 = markers.get_node("CustomerOut").global_position
+	var b: Vector3 = markers.get_node("CustomerOut2").global_position
+	return a if from.distance_to(a) <= from.distance_to(b) else b
 
 func spawn_customer() -> void:
 	var c = CUSTOMER.instantiate()
@@ -209,7 +221,7 @@ func spawn_customer() -> void:
 	c.net_id = next_customer_id
 	next_customer_id += 1
 	$Customers.add_child(c)
-	c.global_position = customer_exit()
+	c.global_position = customer_exit(Vector3(randf_range(-20, 20), 0, 0))
 	customers.append(c)
 	_reflow()
 
@@ -238,6 +250,73 @@ func serve(bitten: bool) -> void:
 		sold += 1
 		if tutorial == null and sold >= SALES_GOAL:
 			end_game("sold")
+
+func claim_eat_spot(c) -> Node3D:
+	var free: Array = []
+	for m in eat_spots:
+		if eat_spots[m] == null:
+			free.append(m)
+	if free.is_empty():
+		return null
+	var m: Node3D = free.pick_random()
+	eat_spots[m] = c
+	return m
+
+func release_eat_spot(m: Node3D) -> void:
+	if eat_spots.has(m):
+		eat_spots[m] = null
+
+func eating_customers() -> Array:
+	var out: Array = []
+	for c in $Customers.get_children():
+		if not c.puppet and c.has_food():
+			out.append(c)
+	return out
+
+func customers_near(p: Vector3, r: float) -> int:
+	var n := 0
+	for c in $Customers.get_children():
+		if c.state in ["queue", "eating", "to_eat"] and Vector2(c.global_position.x - p.x, c.global_position.z - p.z).length() < r:
+			n += 1
+	return n
+
+## 짖기: 근처 손님이 겁먹고, 셰프에게 소리가 들린다
+func dog_bark(p: Vector3) -> void:
+	sfx("bark", p, 4.0, 1.05)
+	make_noise(p, 14.0)
+	for c in $Customers.get_children():
+		if Vector2(c.global_position.x - p.x, c.global_position.z - p.z).length() < 5.0:
+			c.scared()
+
+func customer_scared(c) -> void:
+	customers.erase(c)
+	_reflow()
+
+## 강아지가 테이블 손님 핫도그를 뺏어 먹었다
+func customer_robbed(c) -> void:
+	c.stolen()
+	make_noise(c.global_position, 10.0)
+	banner("손님 핫도그를 강아지가 뺏어 먹었다! (별점 -0.5)")
+	_lose_star(0.5)
+
+## 손님이 떨어뜨린 핫도그: 바닥 핫도그가 하나 늘어난다 (강아지 먹이이자 숨을 곳)
+func add_decoy(p: Vector3, rot := randf_range(-1.0, 1.0)) -> void:
+	var h: Node3D = RackScript.new_hotdog()
+	$Decoys.add_child(h)
+	h.global_position = Vector3(p.x, 0, p.z)
+	h.rotation.y = rot
+	h.set_meta("edible", true)  # 방금 떨어뜨린 건 먹을 수 있다
+	decoys.append(h)
+
+func _follow_dog(delta: float) -> void:
+	var target: Vector3 = dog.global_position if dog.visible else chef.global_position
+	target.y = 0
+	var want := target + DOG_CAM_OFFSET
+	if follow_cam.global_position.distance_to(want) > 25.0:
+		follow_cam.global_position = want
+	else:
+		follow_cam.global_position = follow_cam.global_position.lerp(want, 1.0 - exp(-5.0 * delta))
+	follow_cam.look_at(follow_cam.global_position - DOG_CAM_OFFSET, Vector3.UP)
 
 func customer_gave_up(c) -> void:
 	customers.erase(c)
@@ -318,37 +397,28 @@ func nearest_decoy(pos: Vector3, dist: float):
 # ---------------------------------------------------------------- 승패
 
 func catch_dog(how: String) -> void:
-	if over:
-		return
+	if over or dog.stopped or not dog.visible:
+		return  # 이미 잡혀서 버둥대거나 던져지는 중
 	if tutorial != null:
 		dog.caught()
 		over = true
 		chef.stop()
 		_tut_event("caught")
 		return
+	# 잡기는 승리가 아니다: 먹은 소시지 하나를 뱉게 하고, 장터로 던진다
 	caught += 1
+	eaten = maxi(eaten - 1, 0)
 	dog.caught()
-	if caught >= CATCH_GOAL:
-		end_game(how)
-		return
-	_eject_dog()
-
-## 잡았지만 아직 세 번이 안 됐다: 트럭 밖으로 던지고, 잠시 뒤 뒷문으로 다시 들어온다
-func _eject_dog() -> void:
 	if dog.slot >= 0:
 		rack.items[dog.slot] = null
 		dog.slot = -1
 	chef.after_catch()
-	banner("강아지를 쫓아냈다! (%d/%d) 그런데 저 녀석, 또 올 것 같은데..." % [caught, CATCH_GOAL])
-	await get_tree().create_timer(1.3).timeout
+	banner("강아지를 잡아 밖으로 던졌다! 먹은 소시지 하나를 뱉어 냈다 (%d번째)" % caught)
+	await get_tree().create_timer(0.9).timeout
 	if over or not is_inside_tree():
 		return
-	dog.visible = false
-	dog.global_position = markers.get_node("DogSpawn").global_position + Vector3(0, 0, 6)
-	await get_tree().create_timer(DOG_RETURN_TIME).timeout
-	if over or not is_inside_tree():
-		return
-	dog.respawn(markers.get_node("DogSpawn").global_position)
+	var land: Vector3 = markers.get_node("DoorOutside").global_position + Vector3(randf_range(2.0, 4.0), 0, randf_range(-2.0, 2.0))
+	dog.thrown(land)
 
 func dog_ate() -> void:
 	eaten += 1
@@ -391,8 +461,15 @@ func _net_snapshot() -> Dictionary:
 		dc.append(d.get_meta("bitten"))
 	return {
 		"k": "snap", "n": snap_n, "tl": time_left, "st": stars, "ea": eaten, "so": sold, "ca": caught, "fc": front_customer() != null,
+		"dx": _extra_decoys(),
 		"c": chef.net_state(), "d": dog.net_state(), "cu": cs, "rk": rk, "dc": dc,
 	}
+
+func _extra_decoys() -> Array:
+	var out: Array = []
+	for i in range(base_decoys, decoys.size()):
+		out.append([decoys[i].global_position.x, decoys[i].global_position.z, decoys[i].rotation.y])
+	return out
 
 func _guest_process(delta: float) -> void:
 	var s = Net.snapshot
@@ -430,12 +507,15 @@ func _guest_process(delta: float) -> void:
 	if Input.is_action_just_pressed("p1_skill"):
 		in_s += 1
 		changed = true
+	if Input.is_action_just_pressed("p1_bark"):
+		in_b += 1
+		changed = true
 	in_t -= delta
 	if changed or in_t <= 0.0:
 		in_t = 0.05
 		last_in = v
 		last_look = look
-		Net.send({"k": "in", "mx": v.x, "my": v.y, "a": in_a, "s": in_s, "yw": look.x, "pt": look.y, "cg": in_cg, "cb": in_cb})
+		Net.send({"k": "in", "mx": v.x, "my": v.y, "a": in_a, "s": in_s, "yw": look.x, "pt": look.y, "cg": in_cg, "cb": in_cb, "bk": in_b})
 	_update_highlights()
 	hud.refresh()
 
@@ -461,7 +541,11 @@ func _net_apply(s: Dictionary, first: bool) -> void:
 			rack.place(i, RackScript.new_hotdog(code == 2))
 		elif code == 3:
 			rack.items[i] = dog
-	for i in decoys.size():
+	# 손님이 떨어뜨려 새로 생긴 바닥 핫도그
+	while decoys.size() < base_decoys + s.dx.size():
+		var e: Array = s.dx[decoys.size() - base_decoys]
+		add_decoy(Vector3(e[0], 0, e[1]), e[2])
+	for i in mini(decoys.size(), s.dc.size()):
 		if decoys[i].get_meta("bitten") != s.dc[i]:
 			rack.set_bitten(decoys[i], s.dc[i])
 	var alive := {}

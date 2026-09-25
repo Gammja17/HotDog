@@ -92,12 +92,14 @@ func _run() -> void:
 	chef.act()
 	check(g.caught == 0, "등 뒤 강아지는 못 잡는다")
 	chef.set_look(PI / 2.0, -0.3)  # 돌아서 강아지(-x)를 보면
+	var eaten0: int = g.eaten
 	chef.act()
-	check(g.caught == 1 and not g.over, "보고 있는 바로 앞 강아지를 잡으면 쫓아낸다 (1/3)")
-	await wait(1.6)
-	check(not dog.visible, "쫓겨난 강아지는 트럭 밖으로")
-	await wait(g.DOG_RETURN_TIME)
-	check(dog.visible and not dog.stopped, "잠시 뒤 뒷문으로 다시 들어온다")
+	check(g.caught == 1 and not g.over, "보고 있는 바로 앞 강아지를 잡아도 게임은 계속된다")
+	check(g.eaten == maxi(eaten0 - 1, 0), "잡히면 먹은 소시지 하나를 뱉는다")
+	await wait(1.8)
+	check(not g.chef.in_truck(dog.global_position), "잡힌 강아지는 장터로 던져진다")
+	await wait(2.5)
+	check(not dog.stopped, "어질어질한 뒤 다시 움직인다")
 
 	# 헛찌르기: 멀쩡한 바닥 핫도그를 찌르면 별점 -0.5
 	var decoy: Node3D = g.decoys[1]
@@ -108,10 +110,39 @@ func _run() -> void:
 	await wait(0.8)
 	check(is_equal_approx(g.stars, stars0 - 0.5), "멀쩡한 핫도그를 찌르면 별점 -0.5")
 
-	# 세 번 잡으면 끝
-	g.caught = 2
-	dog.global_position = chef.global_position + Vector3(0, 0, -0.8)
+	# 장터: 테이블에서 먹는 손님 핫도그를 뺏는다
+	for c in g.customers.duplicate():
+		c.queue_free()
+	g.customers.clear()
+	g.spawn_customer()
+	var cu = g.customers[0]
+	cu.global_position = g._queue_pos(0)
+	await wait(0.2)
+	chef.global_position = g.stations["window"].global_position
+	chef.set_hand("hotdog")
 	chef.act()
-	check(g.over, "세 번째로 잡으면 셰프 승리")
+	var tt := 0.0
+	while not cu.has_food() and tt < 12.0:
+		await wait(0.2)
+		tt += 0.2
+	check(cu.has_food(), "핫도그를 산 손님은 장터 테이블에서 먹는다")
+	dog.global_position = cu.global_position + Vector3(0.6, 0, 0.5)
+	var eaten1: int = g.eaten
+	stars0 = g.stars
+	dog.try_eat()
+	await wait(1.8)
+	check(g.eaten == eaten1 + 1 and g.stars < stars0 and not cu.has_food(), "강아지가 손님 핫도그를 뺏어 먹는다 (별점 -0.5)")
+
+	# 짖기: 줄 선 손님이 겁먹고 떠난다
+	g.spawn_customer()
+	var q = g.customers[g.customers.size() - 1]
+	q.global_position = g._queue_pos(g.customers.size() - 1)
+	await wait(0.2)
+	dog.global_position = q.global_position + Vector3(1.5, 0, 0)
+	dog.bark_cd = 0.0
+	dog.bark()
+	await wait(0.2)
+	check(not g.customers.has(q) and q.state == "leaving", "짖으면 줄 선 손님이 겁먹고 떠난다")
+	check(dog.bark_cd > 0.0, "짖기는 한동안 다시 못 한다")
 	print("FAILS: ", fails)
 	quit(fails)
