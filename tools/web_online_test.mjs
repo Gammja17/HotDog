@@ -9,6 +9,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const BASE = "http://127.0.0.1:8766/index.html";
 const OUT = process.argv[2] || ".";
+const HOST_ROLE = process.argv[3] || "chef";  // 방장 역할 (손님은 나머지)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const procs = [];
 
@@ -65,7 +66,7 @@ async function waitLog(page, re, ms) {
 let fails = 0;
 const check = (ok, what) => { console.log((ok ? "  ok   " : "  FAIL ") + what); if (!ok) fails++; };
 try {
-  const host = await launch("host", 9331, `${BASE}?devhost=chef`);
+  const host = await launch("host", 9331, `${BASE}?devhost=${HOST_ROLE}`);
   const codeLine = await waitLog(host, /방 코드/, 40000);
   check(!!codeLine, "방장: 중개 서버에서 방 코드를 받는다");
   const code = codeLine ? codeLine.trim().split(/\s+/).pop() : "XXXX";
@@ -81,8 +82,8 @@ try {
   await guest.key("keyUp", "Space", " ");
   check(!!(await waitLog(host, /손님 입력: act/, 5000)), "방장: 손님의 Space 입력을 받는다");
   await sleep(1500);
-  await host.shot("online_host.png");
-  await guest.shot("online_guest.png");
+  await host.shot(`online_host_${HOST_ROLE}.png`);
+  await guest.shot(`online_guest_${HOST_ROLE}.png`);
   const errs = [...host.logs, ...guest.logs].filter((l) => /SCRIPT ERROR|ERROR:/.test(l));
   check(errs.length === 0, "스크립트 오류 없음" + (errs.length ? ": " + errs.slice(0, 3).join(" | ") : ""));
 } finally {

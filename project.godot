@@ -26,7 +26,9 @@ theme/custom_font="res://assets/fonts/DoHyeon-Regular.ttf"
 [layer_names]
 
 3d_render/layer_1="everyone"
-3d_render/layer_2="dog_only"
+3d_render/layer_2="top_down_only"
+3d_render/layer_3="chef_body"
+3d_render/layer_4="chef_first_person_only"
 3d_physics/layer_1="world"
 3d_physics/layer_2="chef"
 3d_physics/layer_3="dog"

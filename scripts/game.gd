@@ -4,6 +4,16 @@ extends Node3D
 const RackScript := preload("res://scripts/rack.gd")
 const TutorialScript := preload("res://scripts/tutorial.gd")
 const CUSTOMER := preload("res://scenes/customer.tscn")
+const SFX := {
+	"bark": preload("res://assets/sfx/bark.wav"),
+	"yelp": preload("res://assets/sfx/yelp.wav"),
+	"sniff": preload("res://assets/sfx/sniff.wav"),
+	"chew": preload("res://assets/sfx/chew.wav"),
+	"step": [
+		preload("res://assets/sfx/footstep_carpet_000.ogg"), preload("res://assets/sfx/footstep_carpet_001.ogg"),
+		preload("res://assets/sfx/footstep_carpet_002.ogg"), preload("res://assets/sfx/footstep_carpet_003.ogg"),
+	],
+}
 const GAME_TIME := 180.0
 const EAT_GOAL := 5
 const MAX_STARS := 5.0
@@ -48,6 +58,10 @@ var in_a := 0
 var in_s := 0
 var in_t := 0.0
 var last_in := Vector2.ZERO
+var last_look := Vector2.ZERO
+
+var fp_cam: Camera3D = null   # 이 화면에서 1인칭 셰프 눈으로 보는 카메라
+var sizzle: AudioStreamPlayer3D
 
 func _ready() -> void:
 	for st in get_tree().get_nodes_in_group("station"):
@@ -83,20 +97,32 @@ func _ready() -> void:
 	chef.expected_rack = 2
 
 	cam.look_at_from_position(Vector3(0, 11.2, 7.9), Vector3(0, 0, -0.45))
+	_setup_audio()
+	_tone_down_for_web()
 	if Session.args.has("cam"):  # 개발용: --cam=x,y,z,tx,ty,tz
 		var v: PackedFloat64Array = Session.args["cam"].split_floats(",")
 		cam.look_at_from_position(Vector3(v[0], v[1], v[2]), Vector3(v[3], v[4], v[5]))
 	# 화면: 셰프 화면은 레이어 1만, 강아지 화면은 전부 보인다
 	if online:
 		mode = my_role
+	# 셰프(사람)는 1인칭: 레이어 1과 8만 본다. 강아지 쪽 화면은 위에서 1, 2, 4 (셰프 몸 = 4)
 	match mode:
 		"chef", "tut_chef":
-			cam.cull_mask = 1
+			fp_cam = cam
 		"dog", "watch", "tut_dog":
-			cam.cull_mask = 1 | 2
+			cam.cull_mask = 1 | 2 | 4
 		"duo":
 			cam.current = false
 			hud.setup_split(cam.global_transform)
+			fp_cam = hud.chef_cam()
+	if fp_cam:
+		fp_cam.cull_mask = 1 | 8  # 레이어 8 = 1인칭 셰프 화면에만 보이는 작은 간판
+		fp_cam.fov = 72.0
+		fp_cam.near = 0.05
+		chef.set_look(0.45, -0.2)  # 조리대 쪽을 보고 시작
+		hud.enable_fp(chef)
+	if guest and my_role == "chef":
+		chef.local_look = true
 	hud.setup(self, mode)
 	if mode.begins_with("tut_"):
 		tutorial = TutorialScript.new()
@@ -117,6 +143,9 @@ func _ready() -> void:
 	dog.stopped = false
 
 func _process(delta: float) -> void:
+	if fp_cam:
+		fp_cam.global_transform = chef.eye.global_transform
+	_update_sizzle()
 	if guest:
 		_guest_process(delta)
 		return
@@ -138,7 +167,7 @@ func _process(delta: float) -> void:
 			spawn_t = randf_range(10.0, 16.0)
 			if customers.size() < 3:
 				spawn_customer()
-	dog.set_seen(chef.can_see(dog.body_point()))
+	dog.set_seen(chef.can_see(dog.body_point()), chef.fp)
 	_update_highlights()
 	hud.refresh()
 
@@ -151,7 +180,7 @@ func _update_highlights() -> void:
 			"": want = ["bread"]
 			"bun": want = ["grill"]
 			"grilled": want = ["sauce"]
-			"hotdog": want = ["window"] if front_customer() != null or net_fc else []
+			"hotdog": want = ["window"] if has_front_customer() else []
 	for k in stations:
 		stations[k].set_highlight(k in want)
 	rack.set_highlight(local_chef and chef.hand == "hotdog")
@@ -177,6 +206,9 @@ func spawn_customer() -> void:
 func _reflow() -> void:
 	for i in customers.size():
 		customers[i].target = _queue_pos(i)
+
+func has_front_customer() -> bool:
+	return front_customer() != null or net_fc
 
 func front_customer():
 	if customers.size() > 0 and customers[0].ready_to_order():
@@ -288,6 +320,7 @@ func end_game(reason: String) -> void:
 	if online and not guest:
 		Net.send({"k": "end", "r": reason})
 	var e: Array = ENDINGS[reason]
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	print("[end] ", reason, " t=", int(GAME_TIME - time_left), " eaten=", eaten, " stars=", stars)
 	hud.show_result(e[0], e[1], e[0].begins_with("셰프"))
 
@@ -324,6 +357,12 @@ func _guest_process(delta: float) -> void:
 		var f: PackedFloat64Array = Session.args["fake-move"].split_floats(",")
 		v = Vector2(f[0], f[1])
 	var changed := v != last_in
+	var look := Vector2.ZERO
+	if my_role == "chef":
+		if chef.work_left > 0.0:
+			chef.look_at_work(delta)  # 방장과 똑같이 조리대만 본다
+		look = Vector2(chef.rotation.y, chef.pitch)
+		changed = changed or look.distance_to(last_look) > 0.01
 	if Input.is_action_just_pressed("p1_act") or (Session.args.has("fake-act") and Engine.get_process_frames() % 60 == 0):
 		in_a += 1
 		changed = true
@@ -332,9 +371,10 @@ func _guest_process(delta: float) -> void:
 		changed = true
 	in_t -= delta
 	if changed or in_t <= 0.0:
-		in_t = 0.1
+		in_t = 0.05
 		last_in = v
-		Net.send({"k": "in", "mx": v.x, "my": v.y, "a": in_a, "s": in_s})
+		last_look = look
+		Net.send({"k": "in", "mx": v.x, "my": v.y, "a": in_a, "s": in_s, "yw": look.x, "pt": look.y})
 	_update_highlights()
 	hud.refresh()
 
@@ -384,13 +424,77 @@ func _on_net_message(d: Dictionary) -> void:
 	match d.k:
 		"tr":
 			add_trace(Vector3(d.x, 0, d.z), d.kind)
+		"sfx":
+			sfx(d.n, Vector3(d.x, d.y, d.z), d.db, d.p, false)
 		"end":
 			over = true
 			var e: Array = ENDINGS[d.r]
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			hud.show_result(e[0], e[1], e[0].begins_with("셰프"))
 
 func _on_peer_left() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	over = true
 	chef.stop()
 	dog.stop()
 	hud.show_left()
+
+# ---------------------------------------------------------------- 1인칭 마우스, 소리, 밝기
+
+func _unhandled_input(event: InputEvent) -> void:
+	if fp_cam == null:
+		return
+	if event is InputEventMouseButton and event.pressed and not over:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED  # 화면을 클릭하면 마우스로 둘러본다
+	elif event is InputEventKey and event.pressed and event.physical_keycode == KEY_ESCAPE:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _exit_tree() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+## 효과음을 그 자리에서 튼다 (방향이 있는 소리). 온라인이면 손님 화면에도 보낸다.
+func sfx(name: String, pos: Vector3, db := 0.0, pitch := 1.0, send := true) -> void:
+	var s = SFX[name]
+	if s is Array:
+		s = s.pick_random()
+	var p := AudioStreamPlayer3D.new()
+	p.stream = s
+	p.volume_db = db
+	p.pitch_scale = pitch
+	p.unit_size = 3.0
+	p.max_distance = 16.0
+	$Sfx.add_child(p)
+	p.global_position = pos
+	p.play()
+	p.finished.connect(p.queue_free)
+	if send and online and not guest:
+		Net.send({"k": "sfx", "n": name, "x": pos.x, "y": pos.y, "z": pos.z, "db": db, "p": pitch})
+
+func _setup_audio() -> void:
+	var holder := Node3D.new()
+	holder.name = "Sfx"
+	add_child(holder)
+	sizzle = AudioStreamPlayer3D.new()
+	sizzle.stream = preload("res://assets/sfx/sizzle.wav")
+	sizzle.volume_db = -6.0
+	sizzle.unit_size = 3.0
+	sizzle.max_distance = 14.0
+	sizzle.finished.connect(func(): sizzle.play())  # 굽는 동안 계속
+	holder.add_child(sizzle)
+	sizzle.global_position = stations["grill"].global_position + Vector3(0, 1.0, -0.8)
+
+## 그릴에서 굽는 동안 지글지글 (손님 화면은 받은 셰프 상태로 판단)
+func _update_sizzle() -> void:
+	var on: bool = chef.work_kind == "grill" and chef.work_left > 0.0
+	if on and not sizzle.playing:
+		sizzle.play()
+	elif not on and sizzle.playing:
+		sizzle.stop()
+
+## 웹(브라우저) 화면은 같은 조명에서도 더 밝게 나와서 한 번 더 낮춘다
+func _tone_down_for_web() -> void:
+	if not OS.has_feature("web"):
+		return
+	var env: Environment = $Truck/Env.environment
+	env.ambient_light_energy *= 0.75
+	$Truck/Sun.light_energy *= 0.75

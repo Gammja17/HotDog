@@ -24,6 +24,7 @@ var room_code := ""
 
 # 방장 쪽: 손님이 보낸 입력
 var remote_move := Vector2.ZERO
+var remote_look := Vector2.ZERO   # 손님이 셰프일 때: (몸 좌우, 고개 위아래)
 var remote_presses := {"act": 0, "skill": 0}
 var _last_counts := {"a": 0, "s": 0}
 
@@ -249,6 +250,8 @@ func _handle(d: Dictionary) -> void:
 	match d.get("k", ""):
 		"in":
 			remote_move = Vector2(d.mx, d.my)
+			if d.has("yw"):
+				remote_look = Vector2(d.yw, d.pt)
 			var a := int(d.a)
 			var s := int(d.s)
 			remote_presses.act += maxi(a - _last_counts.a, 0)

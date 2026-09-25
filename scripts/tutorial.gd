@@ -122,15 +122,15 @@ func _chef_steps() -> Array:
 	var crumbs := Vector3(4.4, 0, 1.3)
 	return [
 		{
-			"text": "개업 첫날이다! 먼저 핫도그를 만들어 보자.\n반짝이는 노란 매트(빵) 위로 가서 Space를 누르자. 이동은 WASD.",
+			"text": "개업 첫날이다! 화면을 클릭하면 마우스로 둘러볼 수 있다 (Esc로 풀기). 걷기는 WASD.\n반짝이는 노란 매트(빵) 앞에 서서 Space를 누르자.",
 			"done": func(): return chef.hand == "bun",
 		},
 		{
-			"text": "빵을 들었다. 이번엔 빨간 매트(그릴)에서 Space.\n다 구워질 때까지 가만히 기다리자. 움직이면 멈춘다.",
+			"text": "빵을 들었다. 이번엔 빨간 매트(그릴)에서 Space. 굽는 동안은 팬만 보게 된다.\n바늘이 초록 칸에 올 때 Space를 누르면 빨리 익는다. 가만있어도 천천히 익는다.",
 			"done": func(): return chef.hand == "grilled",
 		},
 		{
-			"text": "주황 매트(소스)에서 Space를 누르면 케첩을 뿌려 완성!",
+			"text": "주황 매트(소스)에서 Space. 바늘이 초록 칸에 올 때 누르면 한 번에 쭉!",
 			"done": func(): return chef.hand == "hotdog",
 		},
 		{
@@ -139,15 +139,16 @@ func _chef_steps() -> Array:
 			"done": func(): return ev.has("served"),
 		},
 		{
-			"text": "손님이 몰릴 때를 대비해 미리 만들어 두면 좋다.\n하나 더 만들어서, 진열대(가운데 빨간 판) 앞에서 Space로 빈칸에 올리자.",
+			"text": "손님이 몰릴 때를 대비해 미리 만들어 두면 좋다.\n하나 더 만들어서, 트럭 가운데 진열대 앞에서 Space로 빈칸에 올리자.",
 			"enter": func(): mem["rack"] = game.rack.count_items(),
 			"done": func(): return game.rack.count_items() > mem["rack"],
 		},
 		{
-			"text": "...어? 트럭 오른쪽 아래 구석에서 무슨 소리가 났다.\n가서 바닥을 살펴보자.",
+			"text": "...어? 등 뒤에서 킁킁거리는 소리가 났다. 쓰레기통 쪽이다.\n돌아서서 가 보자. 요리하는 동안은 등 뒤를 못 보니, 소리를 잘 들어야 한다.",
 			"enter": func():
 				dog.visible = true
 				dog.hide_now()
+				game.sfx("sniff", dog.global_position, 4.0, 1.2)
 				game.add_trace(crumbs, "crumbs")
 				for k in 4:
 					game.add_trace(crumbs.lerp(dog.global_position, (k + 1) / 5.0), "paw")
@@ -160,7 +161,7 @@ func _chef_steps() -> Array:
 			"hint": func(): return "(너무 멀면 안 들린다. 핫도그들 가까이에서 외치자)" if ev.has("call") else "",
 		},
 		{
-			"text": "꼬리가 살랑거리는 핫도그가 있다! 저게 강아지다.\n바로 옆으로 가서 Space로 집게질!",
+			"text": "꼬리가 살랑거리는 핫도그가 있다! 저게 강아지다.\n바로 앞에 서서 그 핫도그를 보면서 Space로 집게질!",
 			"done": func(): return ev.has("caught"),
 			"hint": func(): return "(꼬리가 잠잠해졌다. E로 다시 불러 보자)" if dog.tail < 25.0 else "",
 		},

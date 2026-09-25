@@ -1,10 +1,18 @@
 extends CharacterBody3D
 ## 셰프. 사람이 조종하거나(is_ai = false) AI가 조종한다.
-## 평소에는 핫도그를 만들어 팔고, 흔적을 보면 의심이 쌓이고, 의심이 가득 차면 트럭을 뒤진다.
+## 사람 셰프는 1인칭이다: 눈앞만 보이고, 요리하는 동안은 조리대만 본다.
+## AI 셰프는 핫도그를 만들어 팔고, 흔적을 보면 의심이 쌓이고, 의심이 가득 차면 트럭을 뒤진다.
 
 const RackScript := preload("res://scripts/rack.gd")
 const VIEW_RANGE := 6.5
-const VIEW_HALF_ANGLE := 45.0
+const VIEW_HALF_ANGLE := 45.0      # AI 셰프 시야
+const FP_HALF_ANGLE := 52.0        # 1인칭 화면이 보여 주는 범위 (카메라 화각과 맞춤)
+const MOUSE_SENS := 0.0025
+# 사람 셰프의 조리 손맛: 바늘이 초록 칸에 있을 때 Space. 가만있어도 base초면 익는다.
+const COOK := {
+	"grill": {"base": 5.0, "good": 1.7, "bad": 0.6, "zone": 0.22, "speed": 1.1, "text": "소시지 굽는 중! 바늘이 초록 칸일 때 Space로 뒤집기"},
+	"sauce": {"base": 2.2, "good": 2.2, "bad": 0.4, "zone": 0.26, "speed": 1.3, "text": "소스 뿌리는 중! 바늘이 초록 칸일 때 Space로 쭉-"},
+}
 const WORK_TIME := {"bread": 0.8, "grill": 2.0, "sauce": 0.8, "poke": 0.5}
 const HAND_TEXT := {"": "빈손", "bun": "빵", "grilled": "소시지 넣은 빵", "hotdog": "핫도그"}
 
@@ -49,6 +57,19 @@ var script_working := false
 
 # 온라인 손님 쪽: 방장이 보낸 상태를 그대로 보여 주기만 한다
 var puppet := false
+var local_look := false      # 손님 쪽 1인칭 셰프: 시점은 이 컴퓨터 마우스로 바로 돌린다
+
+# 1인칭 (사람 셰프)
+var fp := false
+var pitch := 0.0
+var work_kind := ""
+var work_target := Vector3.ZERO   # 일하는 동안 바라보는 곳
+# 조리 손맛
+var cook_kind := ""
+var cook_needle := 0.0            # 0~1 왕복
+var cook_zone := 0.5              # 초록 칸 가운데
+var cook_flash := ""              # "좋아!" / "앗, 탔다!" 잠깐 표시
+var cook_flash_t := 0.0
 
 @onready var model: Node3D = $Model
 @onready var agent: NavigationAgent3D = $Agent
@@ -57,6 +78,7 @@ var puppet := false
 @onready var mark_label: Label3D = $Mark
 @onready var held: Node3D = $Held
 @onready var cone: MeshInstance3D = $Cone
+@onready var eye: Node3D = $Eye
 var ap: AnimationPlayer
 var say_t := 0.0
 
@@ -64,8 +86,17 @@ func setup(g: Node, ai: bool, input_prefix: String) -> void:
 	game = g
 	is_ai = ai
 	prefix = input_prefix
-	speed = 3.0 if ai else 3.8
+	speed = 3.0 if ai else 3.4
 	mark_label.visible = ai
+	fp = not ai
+	if fp:
+		# 내 몸은 내 1인칭 카메라에 안 보이게 (레이어 3 = 셰프 몸, 강아지 화면에만 보인다)
+		for v in model.find_children("*", "VisualInstance3D", true, false):
+			v.layers = 4
+		$Hat.layers = 4
+		# 든 것은 눈앞에 보이게
+		held.reparent(eye, false)
+		held.position = Vector3(0.28, -0.32, -0.55)
 
 func _ready() -> void:
 	ap = Anim.setup(model)
@@ -108,9 +139,9 @@ func can_see(p: Vector3) -> bool:
 	var to := p - global_position
 	to.y = 0
 	var d := to.length()
-	if d > VIEW_RANGE:
+	if d > (9.0 if fp else VIEW_RANGE):
 		return false
-	if d > 0.7 and facing.angle_to(to.normalized()) > deg_to_rad(VIEW_HALF_ANGLE):
+	if d > 0.7 and facing.angle_to(to.normalized()) > deg_to_rad(FP_HALF_ANGLE if fp else VIEW_HALF_ANGLE):
 		return false
 	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 1.5, 0), p + Vector3(0, 0.3, 0), 1)
 	q.exclude = [get_rid()]
@@ -120,6 +151,7 @@ func stop() -> void:
 	stopped = true
 	velocity = Vector3.ZERO
 	work_left = 0.0
+	cook_kind = ""
 	bar_label.text = ""
 
 func set_hand(h: String, bitten := false) -> void:
@@ -139,6 +171,8 @@ func set_hand(h: String, bitten := false) -> void:
 			m = RackScript.new_hotdog(bitten)
 			m.scale = Vector3.ONE * 0.75
 	if m:
+		if fp:
+			m.scale *= 0.45  # 1인칭: 눈앞에 들고 있으니 작게
 		held.add_child(m)
 
 func _face(dir: Vector3, weight := 0.25) -> void:
@@ -152,15 +186,42 @@ func _start_work(kind: String, done: Callable) -> void:
 	work_total = WORK_TIME[kind]
 	work_left = work_total
 	work_done = done
+	work_kind = kind
+	var st: Node3D = game.stations.get(kind)
+	work_target = st.global_position + Vector3(0, 0.9, -0.9) if st else global_position + facing * 1.2
+	# 사람 셰프는 굽기와 소스에 손맛 게임이 붙는다
+	if fp and COOK.has(kind):
+		cook_kind = kind
+		cook_needle = 0.0
+		cook_zone = randf_range(0.35, 0.8)
+		work_total = COOK[kind].base
+		work_left = work_total
 	Anim.play(ap, "Working")
+
+## 조리 중 Space: 바늘이 초록 칸이면 확 익고, 아니면 조금 탄다(늦어진다)
+func cook_press() -> void:
+	var c: Dictionary = COOK[cook_kind]
+	if absf(cook_needle - cook_zone) <= c.zone / 2.0:
+		work_left -= c.good
+		cook_flash = "좋아!"
+		cook_zone = randf_range(0.2, 0.8)
+	else:
+		work_left = minf(work_left + c.bad, work_total)
+		cook_flash = "앗, 탔다!"
+	cook_flash_t = 0.6
 
 func _tick_work(delta: float) -> void:
 	work_left -= delta
+	if cook_kind != "":
+		cook_needle = pingpong(Time.get_ticks_msec() / 1000.0 * COOK[cook_kind].speed, 1.0)
+		cook_flash_t -= delta
 	var n := int(8.0 * (1.0 - work_left / work_total))
 	bar_label.text = "=".repeat(clampi(n, 0, 8)) + "-".repeat(clampi(8 - n, 0, 8))
 	if work_left <= 0.0:
 		bar_label.text = ""
 		work_left = 0.0
+		cook_kind = ""
+		work_kind = ""
 		var cb := work_done
 		work_done = Callable()
 		if cb.is_valid():
@@ -178,10 +239,12 @@ static func _flat(a: Vector3, b: Vector3) -> float:
 ## 스페이스 한 번. 상황에 맞는 행동 하나를 한다.
 func act() -> void:
 	if work_left > 0.0:
+		if cook_kind != "":
+			cook_press()
 		return
 	var dog = game.dog
-	# 1) 바로 앞에 강아지가 있으면 (숨었든 아니든) 잡는다
-	if not dog.in_slot() and _flat(global_position, dog.global_position) < 1.1:
+	# 1) 바로 앞(보고 있는 쪽)에 강아지가 있으면 (숨었든 아니든) 잡는다
+	if not dog.in_slot() and _in_front(dog.global_position, 1.3):
 		game.catch_dog("grab")
 		return
 	var rack = game.rack
@@ -217,10 +280,48 @@ func act() -> void:
 			if _near_station("bread"):
 				_start_work("bread", func(): set_hand("bun"))
 				return
-			var d: Node3D = game.nearest_decoy(global_position, 1.3)
-			if d != null:
+			var d: Node3D = game.nearest_decoy(global_position, 1.4)
+			if d != null and _in_front(d.global_position, 1.4):
 				_start_work("poke", func(): say("그냥 핫도그네.", 1.2))
 				return
+
+## p가 가까이, 내가 보고 있는 쪽에 있나 (등 뒤는 못 잡는다)
+func _in_front(p: Vector3, dist: float) -> bool:
+	var to := p - global_position
+	to.y = 0
+	if to.length() > dist:
+		return false
+	return to.length() < 0.5 or facing.angle_to(to.normalized()) < deg_to_rad(65.0)
+
+## 1인칭 화면 가운데에 띄울 안내: 지금 Space를 누르면 무엇을 하나
+func prompt_text() -> String:
+	if work_left > 0.0:
+		return ""
+	var dog = game.dog
+	var rack = game.rack
+	if dog.visible and not dog.in_slot() and _in_front(dog.global_position, 1.3):
+		return "Space: 집게로 집기!"
+	match hand:
+		"hotdog":
+			if _near_station("window", 1.5) and game.has_front_customer():
+				return "Space: 손님에게 건네기"
+			if rack.nearest(global_position, "empty") >= 0:
+				return "Space: 진열대에 올리기"
+		"bun":
+			if _near_station("grill"):
+				return "Space: 그릴에 굽기"
+		"grilled":
+			if _near_station("sauce"):
+				return "Space: 소스 뿌리기"
+		"":
+			if rack.nearest(global_position, "full") >= 0:
+				return "Space: 진열대 핫도그 집기"
+			if _near_station("bread"):
+				return "Space: 빵 꺼내기"
+			var d: Node3D = game.nearest_decoy(global_position, 1.4)
+			if d != null and _in_front(d.global_position, 1.4):
+				return "Space: 집게로 찔러 보기"
+	return ""
 
 ## AI용: 정해 둔 칸에 올린다 (그새 찼으면 다른 빈칸)
 func _place_in(i: int) -> void:
@@ -285,27 +386,59 @@ func _physics_process(delta: float) -> void:
 
 func _player(delta: float) -> void:
 	var v := _move_input()
-	var dir := Vector3(v.x, 0, v.y)
+	if prefix == "net_":
+		set_look(Net.remote_look.x, Net.remote_look.y)
+	elif prefix == "p2_":
+		# 한 컴퓨터 둘이서: 방향키 좌우는 몸 돌리기, 위아래는 걷기
+		set_look(rotation.y - v.x * 2.6 * delta, pitch)
+		v = Vector2(0, v.y)
+	if _pressed("act"):
+		act()
+	if _pressed("skill") and work_left <= 0.0:
+		call_dog()
 	if work_left > 0.0:
-		if dir.length() > 0.1:
+		if v.length() > 0.1 and cook_kind == "":
 			work_left = 0.0
+			work_kind = ""
 			bar_label.text = ""
 			work_done = Callable()
 		else:
 			_tick_work(delta)
+			look_at_work(delta)
 			velocity = Vector3.ZERO
 			return
+	# 1인칭 이동: 보고 있는 방향 기준
+	var fwd := Vector3(-sin(rotation.y), 0, -cos(rotation.y))
+	var right := Vector3(cos(rotation.y), 0, -sin(rotation.y))
+	var dir := right * v.x - fwd * v.y
+	if dir.length() > 1.0:
+		dir = dir.normalized()
 	velocity = dir * speed
 	move_and_slide()
-	if dir.length() > 0.1:
-		_face(dir)
-		Anim.play(ap, "Walk", 1.3)
-	else:
-		Anim.play(ap, "Idle")
-	if _pressed("act"):
-		act()
-	if _pressed("skill"):
-		call_dog()
+	Anim.play(ap, "Walk" if dir.length() > 0.1 else "Idle", 1.3)
+
+## 1인칭 시점 (몸 좌우 = rotation.y, 고개 위아래 = pitch)
+func set_look(yaw: float, p: float) -> void:
+	rotation.y = yaw
+	pitch = clampf(p, -1.25, 0.9)
+	eye.rotation.x = pitch
+	facing = Vector3(-sin(yaw), 0, -cos(yaw))
+
+## 일하는 동안은 조리대(찌르는 곳)만 본다
+func look_at_work(delta: float) -> void:
+	var to := work_target - eye.global_position
+	var yaw := atan2(-to.x, -to.z)
+	var p := atan2(to.y, Vector2(to.x, to.z).length())
+	var w := 1.0 - exp(-8.0 * delta)
+	set_look(lerp_angle(rotation.y, yaw, w), lerpf(pitch, p, w))
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not fp or is_ai or prefix == "net_" or stopped:
+		return
+	if puppet and not local_look:
+		return
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and work_left <= 0.0:
+		set_look(rotation.y - event.relative.x * MOUSE_SENS, pitch - event.relative.y * MOUSE_SENS)
 
 ## 입력: 이 컴퓨터 키보드(p1_/p2_) 또는 온라인 손님(net_)
 func _move_input() -> Vector2:
@@ -600,13 +733,27 @@ func net_state() -> Dictionary:
 		"p": [global_position.x, global_position.y, global_position.z], "r": rotation.y,
 		"a": ap.get_meta("cur", ["Idle", 1.0]) if ap else ["Idle", 1.0],
 		"h": hand, "hb": hand_bitten, "sy": say_label.text, "b": bar_label.text, "cd": call_cd,
+		"pt": pitch, "wk": [work_kind, work_left, work_total, work_target.x, work_target.y, work_target.z],
+		"ck": [cook_kind, cook_needle, cook_zone, cook_flash, cook_flash_t],
 	}
 
 func apply_net(d: Dictionary, snap: bool) -> void:
 	var p := Vector3(d.p[0], d.p[1], d.p[2])
 	global_position = p if snap else global_position.lerp(p, 0.35)
-	rotation.y = lerp_angle(rotation.y, d.r, 1.0 if snap else 0.35)
+	if not local_look:
+		rotation.y = lerp_angle(rotation.y, d.r, 1.0 if snap else 0.35)
+		pitch = d.pt
+		eye.rotation.x = pitch
 	facing = Vector3(-sin(rotation.y), 0, -cos(rotation.y))
+	work_kind = d.wk[0]
+	work_left = d.wk[1]
+	work_total = d.wk[2]
+	work_target = Vector3(d.wk[3], d.wk[4], d.wk[5])
+	cook_kind = d.ck[0]
+	cook_needle = d.ck[1]
+	cook_zone = d.ck[2]
+	cook_flash = d.ck[3]
+	cook_flash_t = d.ck[4]
 	Anim.play(ap, d.a[0], d.a[1])
 	if d.h != hand or d.hb != hand_bitten:
 		set_hand(d.h, d.hb)

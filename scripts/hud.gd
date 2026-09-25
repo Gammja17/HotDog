@@ -2,8 +2,8 @@ extends CanvasLayer
 ## 화면 위 정보: 남은 시간, 별점, 먹은 소시지, 셰프 손, 강아지 본능 게이지, 결과 창.
 
 const HINTS := {
-	"chef_p1": "WASD 이동  /  Space 행동 (빵/그릴/소스/진열/판매/집게)  /  E \"누가 착한 아이지~?\"",
-	"chef_p2": "방향키 이동  /  Enter 행동  /  오른쪽 Shift \"누가 착한 아이지~?\"",
+	"chef_p1": "마우스 둘러보기 (화면 클릭, Esc 풀기)  /  WASD 걷기  /  Space 행동  /  E \"누가 착한 아이지~?\"",
+	"chef_p2": "방향키 위아래 걷기, 좌우 돌기  /  Enter 행동  /  오른쪽 Shift \"누가 착한 아이지~?\"",
 	"dog": "WASD 이동  /  Space 변장/나오기  /  E 먹기 (숨었을 때는 연타해서 꼬리 참기)",
 }
 const NEXT := {"": "빵, 그릴, 소스 순서로 만들자", "bun": "그릴로!", "grilled": "소스로!", "hotdog": "진열대나 판매 창구로!"}
@@ -48,11 +48,23 @@ func setup(g: Node, m: String) -> void:
 
 ## 둘이서: 왼쪽은 셰프 눈(레이어 1), 오른쪽은 강아지 눈(전부)
 func setup_split(xf: Transform3D) -> void:
-	for pair in [[%ChefCam, 1], [%DogCam, 1 | 2]]:
+	for pair in [[%ChefCam, 1 | 8], [%DogCam, 1 | 2 | 4]]:
 		var c: Camera3D = pair[0]
 		c.global_transform = xf
 		c.cull_mask = pair[1]
 		c.current = true
+
+func chef_cam() -> Camera3D:
+	return %ChefCam
+
+## 1인칭 셰프 화면 요소 (가운데 점, Space 안내, 내 말, 조리 손맛 창)
+func enable_fp(chef: Node) -> void:
+	var fp := preload("res://scenes/fp_hud.tscn").instantiate()
+	add_child(fp)
+	move_child(fp, 1)  # 분할 화면 위, 나머지 창 아래
+	if mode == "duo":
+		fp.anchor_right = 0.5  # 왼쪽 셰프 화면에만
+	fp.chef = chef
 
 func banner(text: String) -> void:
 	banner_label.text = text
@@ -105,6 +117,7 @@ func refresh() -> void:
 			dog_state.text = "몰래 움직이는 중"
 
 func show_result(title: String, body: String, chef_won: bool) -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	result.visible = true
 	var me := ""
 	if mode == "chef":
@@ -116,6 +129,7 @@ func show_result(title: String, body: String, chef_won: bool) -> void:
 	%Retry.grab_focus()
 
 func show_tutorial_done(title: String, body: String, kind: String) -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	next_mode = kind
 	result.visible = true
 	result_title.text = title

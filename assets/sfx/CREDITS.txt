@@ -1,0 +1,9 @@
+효과음 출처 (모두 CC0, 출처 표기 의무 없음)
+- bark.wav     ← BigSoundBank "Barking of a Spitz" (0682)  https://bigsoundbank.com/barking-of-a-spitz-s0682.html
+- yelp.wav     ← BigSoundBank "Dogs barking and crying #1" (1544)  https://bigsoundbank.com/dogs-barking-and-crying-1-s1544.html
+- sniff.wav    ← BigSoundBank "Sniff" (0784)  https://bigsoundbank.com/sniff-s0784.html
+- chew.wav     ← BigSoundBank "Eat a Rusk" (0407)  https://bigsoundbank.com/eat-a-rusk-s0407.html
+- sizzle.wav   ← BigSoundBank "Frying pan #2" (0144)  https://bigsoundbank.com/frying-pan-2-s0144.html
+- footstep_carpet_*.ogg ← Kenney "Impact Sounds"  https://kenney.nl/assets/impact-sounds
+BigSoundBank 라이선스: https://bigsoundbank.com/licenses.html (CC0 1.0)
+원본에서 필요한 구간만 잘라 한 채널로 저장했다.

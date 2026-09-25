@@ -91,10 +91,11 @@ func stop() -> void:
 
 ## 셰프 눈에 보이는지에 따라 몸의 렌더 레이어를 바꾼다.
 ## 레이어 1: 셰프 화면에도 보임 / 레이어 2: 강아지 화면에만 보임
-func set_seen(v: bool) -> void:
+func set_seen(v: bool, always_visible := false) -> void:
 	v = v or revealed_t > 0.0
 	seen = v
-	var layer := 1 | 2 if v else 2
+	# 1인칭 셰프는 눈앞에 보이는 대로 그리면 되니 늘 보이게 둔다
+	var layer := 1 | 2 if (v or always_visible) else 2
 	for m in body_model.find_children("*", "VisualInstance3D", true, false):
 		m.layers = layer
 
@@ -105,6 +106,7 @@ func caught() -> void:
 	_unhide_visual()
 	set_seen(true)
 	say("깨갱!!", 99.0, true)
+	game.sfx("yelp", global_position, 2.0, 1.25)
 	Anim.play(ap, "Jump_Loop")
 	var tw := create_tween()
 	tw.tween_property(self, "position:y", position.y + 1.6, 0.35).set_trans(Tween.TRANS_BACK)
@@ -180,6 +182,7 @@ func try_eat() -> void:
 	velocity = Vector3.ZERO
 	_face(f.pos - global_position)
 	Anim.play(ap, "Idle_Eating")
+	game.sfx("chew", global_position, -3.0, randf_range(0.95, 1.1))
 	eat_done = func(): _finish_eat(f)
 
 func _finish_eat(f: Dictionary) -> void:
@@ -269,6 +272,10 @@ func _burst(text: String, radius: float) -> void:
 	tail_pending = 0.0
 	revealed_t = 2.0
 	say(text, 1.6, true)
+	if radius > 8.0:
+		game.sfx("bark", global_position, 3.0, 1.1)
+	else:
+		game.sfx("sniff", global_position, 3.0, 1.2)
 	game.make_noise(global_position, radius)
 
 ## 꼬리 참기: 숨어 있을 때 E 연타
@@ -298,6 +305,7 @@ func _physics_process(delta: float) -> void:
 	revealed_t = maxf(revealed_t - delta, 0.0)
 	_instincts(delta)
 	_paws(delta)
+	_sounds(delta)
 	if eat_left > 0.0:
 		_tick_eat(delta)
 		if not is_ai and _move_input().length() > 0.1:
@@ -345,6 +353,19 @@ func _face(dir: Vector3) -> void:
 	if dir.length() < 0.01:
 		return
 	body_model.rotation.y = lerp_angle(body_model.rotation.y, atan2(dir.x, dir.z), 0.3)
+
+## 발소리(달릴 때)와 참는 콧소리(숨어서 킁킁 게이지가 찰 때). 1인칭 셰프는 소리로 등 뒤를 안다.
+var _step_t := 0.0
+var _sniff_t := 2.0
+func _sounds(delta: float) -> void:
+	_step_t -= delta
+	if not hidden and velocity.length() > 0.5 and _step_t <= 0.0:
+		_step_t = 0.26
+		game.sfx("step", global_position, -4.0, randf_range(1.6, 1.9))
+	_sniff_t -= delta
+	if hidden and sniff > 40.0 and _sniff_t <= 0.0:
+		_sniff_t = randf_range(1.2, 2.6) * (1.6 - sniff / 100.0)
+		game.sfx("sniff", global_position, -12.0 + sniff / 100.0 * 10.0, 1.35)
 
 func _paws(delta: float) -> void:
 	if paw_left <= 0 or hidden:

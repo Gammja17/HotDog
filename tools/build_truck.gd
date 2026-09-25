@@ -24,7 +24,7 @@ func _build() -> void:
 	e.background_color = Color("#2b2f3a")
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color("#fff4e0")
-	e.ambient_light_energy = 0.45
+	e.ambient_light_energy = 0.36
 	e.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.environment = e
 	_add(top, env)
@@ -32,7 +32,7 @@ func _build() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.name = "Sun"
 	sun.rotation_degrees = Vector3(-60, -30, 0)
-	sun.light_energy = 0.8
+	sun.light_energy = 0.7
 	sun.shadow_enabled = true
 	_add(top, sun)
 
@@ -50,6 +50,7 @@ func _build() -> void:
 
 	_floor()
 	_walls()
+	_fp_shell()
 	_kitchen()
 	_rack()
 	_clutter()
@@ -136,8 +137,8 @@ func _prop(path: String, name: String, parent: Node, pos: Vector3, rot_y := 0.0,
 
 func _floor() -> void:
 	# 트럭 바닥 12 x 8 (x -6..6, z -4..4): 두 톤 체크무늬. 바깥은 어두운 길바닥
-	var floor_a := _mat(Color("#f7e3b5"))
-	var floor_b := _mat(Color("#e9c98c"))
+	var floor_a := _mat(Color("#e3c690"))
+	var floor_b := _mat(Color("#cda66a"))
 	for ix in range(6):
 		for iz in range(4):
 			var tile := MeshInstance3D.new()
@@ -203,6 +204,26 @@ const STATION_COLOR := {
 	"sauce": Color("#f08a30"), "window": Color("#4fb860"),
 }
 
+## 1인칭 셰프 화면에만 보이는 트럭 껍데기: 앞벽, 높은 옆벽, 천장.
+## 위에서 내려다보는 카메라를 가리지 않도록 렌더 레이어 8에만 둔다. (충돌은 기존 벽과 막이 맡는다)
+func _fp_shell() -> void:
+	var g := Node3D.new()
+	g.name = "FirstPersonShell"
+	_add(top, g)
+	var wall := Color("#b98a3a")
+	var parts := [
+		["Front", Vector3(0, 1.4, 4.15), Vector3(12.6, 2.8, 0.3), wall],
+		["LeftUpper", Vector3(-6.15, 2.0, 0), Vector3(0.3, 1.6, 8.3), wall],
+		["RightUpper", Vector3(6.15, 2.0, 0), Vector3(0.3, 1.6, 8.3), wall],
+		["BackLeftUpper", Vector3(-3.075, 2.5, -4.15), Vector3(6.15, 0.6, 0.3), wall],
+		["BackRightUpper", Vector3(4.9, 2.5, -4.15), Vector3(2.5, 0.6, 0.3), wall],
+		["Ceiling", Vector3(0, 2.85, 0), Vector3(12.6, 0.1, 8.6), Color("#8c6a3a")],
+	]
+	for p in parts:
+		var mi := _flat_box(p[0], g, p[1], p[2], p[3])
+		mi.layers = 8
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 func _station(kind: String, at: Vector3, label: String) -> void:
 	var st := Node3D.new()
 	st.name = "Station_" + kind
@@ -223,8 +244,22 @@ func _station(kind: String, at: Vector3, label: String) -> void:
 	l.outline_modulate = c.darkened(0.6)
 	l.position = Vector3(0, 2.3, -0.5)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.no_depth_test = true
+	l.no_depth_test = false
+	l.layers = 2  # 위에서 보는 화면용 큰 간판
 	_add(st, l)
+	# 1인칭 셰프 화면용: 조리대 앞에 붙은 작은 간판
+	var f := Label3D.new()
+	f.name = "SignFP"
+	f.font = l.font
+	f.text = label
+	f.font_size = 44
+	f.outline_size = 12
+	f.modulate = l.modulate
+	f.outline_modulate = l.outline_modulate
+	f.pixel_size = 0.004
+	f.position = Vector3(0, 1.75, -1.2) if kind != "window" else Vector3(0, 2.05, -1.3)
+	f.layers = 8
+	_add(st, f)
 
 func _kitchen() -> void:
 	var back := -4.0 + 0.9  # 가구 원점 z (뒤판이 벽에 붙도록)
@@ -287,8 +322,22 @@ func _rack() -> void:
 	l.outline_modulate = Color("#5a1410")
 	l.position = Vector3(0, 1.8, 0)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.no_depth_test = true
+	l.no_depth_test = false
+	l.layers = 2
 	_add(rack, l)
+	var f := Label3D.new()
+	f.name = "SignFP"
+	f.font = l.font
+	f.text = "진열대"
+	f.font_size = 44
+	f.outline_size = 12
+	f.modulate = l.modulate
+	f.outline_modulate = l.outline_modulate
+	f.pixel_size = 0.004
+	f.position = Vector3(0, 1.35, 0.05)
+	f.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	f.layers = 8
+	_add(rack, f)
 
 func _clutter() -> void:
 	_prop("res://assets/furniture/trashcan.glb", "Trash", nav, Vector3(5.3, 0, 2.2), 0, 1.3)

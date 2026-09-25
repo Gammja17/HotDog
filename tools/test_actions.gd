@@ -30,11 +30,26 @@ func _run() -> void:
 	check(chef.hand == "bun", "빵을 집는다")
 	chef.global_position = g.stations["grill"].global_position
 	chef.act()
-	await wait(2.2)
+	await wait(5.3)  # 1인칭 셰프: 손맛 게임을 안 하면 5초에 익는다
 	check(chef.hand == "grilled", "그릴에 굽는다")
+	# 손맛: 초록 칸에서 누르면 빨리 익고, 밖에서 누르면 늦어진다
+	chef.set_hand("bun")
+	chef.global_position = g.stations["grill"].global_position
+	chef.act()
+	await wait(0.2)
+	var left0: float = chef.work_left
+	chef.cook_needle = chef.cook_zone
+	chef.act()
+	check(chef.work_left < left0 - 1.0, "초록 칸에서 누르면 빨리 익는다")
+	left0 = chef.work_left
+	chef.cook_needle = fmod(chef.cook_zone + 0.5, 1.0)
+	chef.act()
+	check(chef.work_left > left0, "초록 칸 밖에서 누르면 늦어진다")
+	await wait(4.0)
+	check(chef.hand == "grilled", "손맛 게임 뒤에도 구워진다")
 	chef.global_position = g.stations["sauce"].global_position
 	chef.act()
-	await wait(1.0)
+	await wait(2.4)
 	check(chef.hand == "hotdog", "소스를 뿌린다")
 	var before: int = g.rack.count_items()
 	chef.global_position = Vector3(0, 0, 1.65)
@@ -71,8 +86,12 @@ func _run() -> void:
 	await wait(0.3)
 	check(not dog.hidden and not dog.in_slot(), "진열대에서 뛰어내린다")
 
-	chef.global_position = dog.global_position + Vector3(0.5, 0, 0)
+	chef.global_position = dog.global_position + Vector3(0.8, 0, 0)
+	chef.set_look(-PI / 2.0, -0.3)  # 등을 돌리고 있으면 (+x를 봄)
 	chef.act()
-	check(g.over, "바로 옆 강아지를 잡는다")
+	check(not g.over, "등 뒤 강아지는 못 잡는다")
+	chef.set_look(PI / 2.0, -0.3)  # 돌아서 강아지(-x)를 보면
+	chef.act()
+	check(g.over, "보고 있는 바로 앞 강아지를 잡는다")
 	print("FAILS: ", fails)
 	quit(fails)
