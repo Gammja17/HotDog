@@ -1,5 +1,5 @@
 .godot/
 *.tmp
 /android/
-shot*.png
+shot*.png*
 builds/
