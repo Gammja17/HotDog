@@ -98,9 +98,9 @@ fov = 62.0
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -300.0
+offset_left = -440.0
 offset_top = 4.0
-offset_right = 300.0
+offset_right = 440.0
 offset_bottom = 48.0
 grow_horizontal = 2
 theme_override_styles/panel = SubResource("panel")
@@ -108,7 +108,7 @@ theme_override_styles/panel = SubResource("panel")
 [node name="Row" type="HBoxContainer" parent="HUD/Top"]
 layout_mode = 2
 alignment = 1
-theme_override_constants/separation = 36
+theme_override_constants/separation = 26
 
 [node name="Time" type="Label" parent="HUD/Top/Row"]
 theme_override_fonts/font = ExtResource("font_title")
@@ -122,15 +122,29 @@ theme_override_fonts/font = ExtResource("font_title")
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 22
 text = "★★★★★"
+
+[node name="Sold" type="Label" parent="HUD/Top/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.95, 0.55, 1)
+theme_override_font_sizes/font_size = 22
+text = "판매 0 / 10"
+
+[node name="Caught" type="Label" parent="HUD/Top/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "쫓아냄 0 / 3"
 
 [node name="Eaten" type="Label" parent="HUD/Top/Row"]
 theme_override_fonts/font = ExtResource("font_title")
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.6, 0.45, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 22
 text = "먹힌 소시지 0 / 5"
 
 [node name="Banner" type="Label" parent="HUD"]

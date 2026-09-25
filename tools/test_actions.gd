@@ -89,9 +89,28 @@ func _run() -> void:
 	chef.global_position = dog.global_position + Vector3(0.8, 0, 0)
 	chef.set_look(-PI / 2.0, -0.3)  # 등을 돌리고 있으면 (+x를 봄)
 	chef.act()
-	check(not g.over, "등 뒤 강아지는 못 잡는다")
+	check(g.caught == 0, "등 뒤 강아지는 못 잡는다")
 	chef.set_look(PI / 2.0, -0.3)  # 돌아서 강아지(-x)를 보면
 	chef.act()
-	check(g.over, "보고 있는 바로 앞 강아지를 잡는다")
+	check(g.caught == 1 and not g.over, "보고 있는 바로 앞 강아지를 잡으면 쫓아낸다 (1/3)")
+	await wait(1.6)
+	check(not dog.visible, "쫓겨난 강아지는 트럭 밖으로")
+	await wait(g.DOG_RETURN_TIME)
+	check(dog.visible and not dog.stopped, "잠시 뒤 뒷문으로 다시 들어온다")
+
+	# 헛찌르기: 멀쩡한 바닥 핫도그를 찌르면 별점 -0.5
+	var decoy: Node3D = g.decoys[1]
+	chef.global_position = decoy.global_position + Vector3(0, 0, 1.0)
+	chef.set_look(0.0, -0.5)  # -z (핫도그 쪽)
+	var stars0: float = g.stars
+	chef.act()
+	await wait(0.8)
+	check(is_equal_approx(g.stars, stars0 - 0.5), "멀쩡한 핫도그를 찌르면 별점 -0.5")
+
+	# 세 번 잡으면 끝
+	g.caught = 2
+	dog.global_position = chef.global_position + Vector3(0, 0, -0.8)
+	chef.act()
+	check(g.over, "세 번째로 잡으면 셰프 승리")
 	print("FAILS: ", fails)
 	quit(fails)

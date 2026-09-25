@@ -111,6 +111,28 @@ func caught() -> void:
 	var tw := create_tween()
 	tw.tween_property(self, "position:y", position.y + 1.6, 0.35).set_trans(Tween.TRANS_BACK)
 
+## 쫓겨났다가 뒷문으로 다시 들어온다
+func respawn(at: Vector3) -> void:
+	stopped = false
+	visible = true
+	hidden = false
+	slot = -1
+	shape.disabled = false
+	body_model.visible = true
+	disguise.visible = false
+	sniff = 0.0
+	tail = 0.0
+	tail_pending = 0.0
+	revealed_t = 0.0
+	eat_left = 0.0
+	eat_done = Callable()
+	bar_label.text = ""
+	global_position = at
+	say("(슬금슬금...)", 2.0)
+	ai_has_goal = false
+	ai_start_t = 3.0
+	Anim.play(ap, "Idle")
+
 # ---------------------------------------------------------------- 숨기
 
 func toggle_hide() -> void:

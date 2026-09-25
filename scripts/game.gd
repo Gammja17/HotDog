@@ -16,12 +16,17 @@ const SFX := {
 }
 const GAME_TIME := 180.0
 const EAT_GOAL := 5
+const SALES_GOAL := 10      # 셰프: 3분 안에 이만큼 팔아야 이긴다
+const CATCH_GOAL := 3       # 셰프: 세 번 잡아 쫓아내도 이긴다
+const DOG_RETURN_TIME := 10.0
+const WRONG_POKE_STARS := 0.5
 const MAX_STARS := 5.0
 
 const ENDINGS := {
-	"grab": ["셰프 승리!", "집게에 들린 강아지와 사장님의 눈이 마주쳤다.\n둘 다 비명을 질렀다."],
-	"rack": ["셰프 승리!", "진열대에서 집어 든 핫도그가 \"왈!\" 하고 짖었다.\n사장님은 핫도그를 떨어뜨릴 뻔했다."],
-	"time": ["셰프 승리!", "퇴근 시간이다. 강아지는 배가 덜 찬 채로\n트럭 구석에서 잠이 들었다."],
+	"grab": ["셰프 승리!", "세 번째로 집게에 들린 강아지와 사장님의 눈이 마주쳤다.\n강아지는 오늘은 그만 포기하기로 했다."],
+	"rack": ["셰프 승리!", "진열대에서 집어 든 핫도그가 또 \"왈!\" 하고 짖었다. 벌써 세 번째다.\n강아지는 오늘은 그만 포기하기로 했다."],
+	"sold": ["셰프 승리!", "오늘 매출 목표 달성!\n사장님은 트럭 어딘가에서 들리는 킁킁 소리를 못 들은 척하기로 했다."],
+	"time": ["강아지 승리!", "퇴근 시간인데 매출이 모자라다.\n사장님이 빈 금고를 보며 한숨 쉬는 사이, 트럭 구석에서 트림 소리가 났다."],
 	"full": ["강아지 승리!", "배가 빵빵해진 강아지가 뒷문으로 유유히 빠져나갔다.\n사장님은 아직도 소시지 개수를 세고 있다."],
 	"stars": ["강아지 승리!", "손님이 다 떠났다. 오늘 달린 리뷰:\n\"핫도그에서 털 나옴. 별 하나도 아까움.\""],
 }
@@ -36,6 +41,8 @@ const ENDINGS := {
 var time_left := GAME_TIME
 var stars := MAX_STARS
 var eaten := 0
+var sold := 0
+var caught := 0
 var over := false
 var customers: Array = []
 var traces: Array = []
@@ -130,8 +137,8 @@ func _ready() -> void:
 		tutorial.setup(self, mode.trim_prefix("tut_"))
 	else:
 		banner({
-			"chef": "핫도그를 팔자! 그런데 오늘따라 뭔가 이상하다...",
-			"dog": "배고프다... 들키지 말고 소시지 5개를 먹자!",
+			"chef": "3분 안에 핫도그 10개를 팔자! 그런데 오늘따라 뭔가 이상하다...",
+			"dog": "소시지 5개를 먹거나, 사장님이 10개를 못 팔게 방해하자!",
 			"duo": "왼쪽 셰프(방향키) vs 오른쪽 강아지(WASD)",
 		}.get(mode, ""))
 	# 내비게이션 맵이 준비될 때까지 AI를 한 프레임 멈춘다
@@ -160,11 +167,11 @@ func _process(delta: float) -> void:
 		time_left -= delta
 		if time_left <= 0.0:
 			time_left = 0.0
-			end_game("time")
+			end_game("time")  # 매출 목표를 못 채웠다
 			return
 		spawn_t -= delta
 		if spawn_t <= 0.0:
-			spawn_t = randf_range(10.0, 16.0)
+			spawn_t = randf_range(8.0, 12.0)
 			if customers.size() < 3:
 				spawn_customer()
 	dog.set_seen(chef.can_see(dog.body_point()), chef.fp)
@@ -225,14 +232,28 @@ func serve(bitten: bool) -> void:
 		chef.on_complaint()
 	else:
 		stars = minf(stars + 0.5, MAX_STARS)
+		sold += 1
+		if tutorial == null and sold >= SALES_GOAL:
+			end_game("sold")
 
 func customer_gave_up(c) -> void:
 	customers.erase(c)
 	_reflow()
 	_lose_star()
 
-func _lose_star() -> void:
-	stars -= 1.0
+## 멀쩡한 핫도그를 찔렀다: 찌그러지고, 보던 손님들이 수군거린다
+func wrong_poke(pos: Vector3) -> void:
+	var d = nearest_decoy(pos, 0.8)
+	if d != null:
+		d.scale.y = 0.55
+	var c = front_customer()
+	if c != null:
+		c.say(["방금 핫도그 찌르셨어요...?", "위생 괜찮은 거죠?", "저 핫도그 왜 찔러요?"].pick_random(), 2.2)
+	banner("멀쩡한 핫도그를 찔렀다! 손님들이 수군거린다 (별점 -0.5)")
+	_lose_star(WRONG_POKE_STARS)
+
+func _lose_star(amount := 1.0) -> void:
+	stars -= amount
 	if tutorial == null and stars <= 0.0:
 		stars = 0.0
 		end_game("stars")
@@ -296,13 +317,35 @@ func nearest_decoy(pos: Vector3, dist: float):
 func catch_dog(how: String) -> void:
 	if over:
 		return
-	dog.caught()
 	if tutorial != null:
+		dog.caught()
 		over = true
 		chef.stop()
 		_tut_event("caught")
 		return
-	end_game(how)
+	caught += 1
+	dog.caught()
+	if caught >= CATCH_GOAL:
+		end_game(how)
+		return
+	_eject_dog()
+
+## 잡았지만 아직 세 번이 안 됐다: 트럭 밖으로 던지고, 잠시 뒤 뒷문으로 다시 들어온다
+func _eject_dog() -> void:
+	if dog.slot >= 0:
+		rack.items[dog.slot] = null
+		dog.slot = -1
+	chef.after_catch()
+	banner("강아지를 쫓아냈다! (%d/%d) 그런데 저 녀석, 또 올 것 같은데..." % [caught, CATCH_GOAL])
+	await get_tree().create_timer(1.3).timeout
+	if over or not is_inside_tree():
+		return
+	dog.visible = false
+	dog.global_position = markers.get_node("DogSpawn").global_position + Vector3(0, 0, 6)
+	await get_tree().create_timer(DOG_RETURN_TIME).timeout
+	if over or not is_inside_tree():
+		return
+	dog.respawn(markers.get_node("DogSpawn").global_position)
 
 func dog_ate() -> void:
 	eaten += 1
@@ -327,6 +370,8 @@ func end_game(reason: String) -> void:
 func banner(text: String) -> void:
 	print("[banner] t=", int(GAME_TIME - time_left), " ", text)
 	hud.banner(text)
+	if online and not guest:
+		Net.send({"k": "banner", "t": text})
 
 # ---------------------------------------------------------------- 온라인
 
@@ -342,7 +387,7 @@ func _net_snapshot() -> Dictionary:
 	for d in decoys:
 		dc.append(d.get_meta("bitten"))
 	return {
-		"k": "snap", "n": snap_n, "tl": time_left, "st": stars, "ea": eaten, "fc": front_customer() != null,
+		"k": "snap", "n": snap_n, "tl": time_left, "st": stars, "ea": eaten, "so": sold, "ca": caught, "fc": front_customer() != null,
 		"c": chef.net_state(), "d": dog.net_state(), "cu": cs, "rk": rk, "dc": dc,
 	}
 
@@ -382,6 +427,8 @@ func _net_apply(s: Dictionary, first: bool) -> void:
 	time_left = s.tl
 	stars = s.st
 	eaten = int(s.ea)
+	sold = int(s.so)
+	caught = int(s.ca)
 	net_fc = s.fc
 	chef.apply_net(s.c, first)
 	dog.apply_net(s.d, first)
@@ -426,6 +473,8 @@ func _on_net_message(d: Dictionary) -> void:
 			add_trace(Vector3(d.x, 0, d.z), d.kind)
 		"sfx":
 			sfx(d.n, Vector3(d.x, d.y, d.z), d.db, d.p, false)
+		"banner":
+			hud.banner(d.t)
 		"end":
 			over = true
 			var e: Array = ENDINGS[d.r]

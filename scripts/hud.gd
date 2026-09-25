@@ -100,6 +100,8 @@ func refresh() -> void:
 	var full := int(game.stars)
 	stars_label.text = "★".repeat(full) + "☆".repeat(5 - full)
 	eaten_label.text = "먹힌 소시지 %d / %d" % [game.eaten, game.EAT_GOAL]
+	%Sold.text = "판매 %d / %d" % [game.sold, game.SALES_GOAL]
+	%Caught.text = "쫓아냄 %d / %d" % [game.caught, game.CATCH_GOAL]
 	var chef = game.chef
 	if chef_box.visible:
 		var bitten := " (한 입 먹힘!)" if chef.hand_bitten and chef.hand == "hotdog" else ""

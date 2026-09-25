@@ -282,8 +282,23 @@ func act() -> void:
 				return
 			var d: Node3D = game.nearest_decoy(global_position, 1.4)
 			if d != null and _in_front(d.global_position, 1.4):
-				_start_work("poke", func(): say("그냥 핫도그네.", 1.2))
+				_start_work("poke", func():
+					say("...아, 멀쩡한 핫도그였다.", 1.4)
+					game.wrong_poke(d.global_position)
+				)
 				return
+
+## 강아지를 잡아 쫓아낸 뒤: 다시 장사로
+func after_catch() -> void:
+	say("나가!!", 1.6)
+	work_left = 0.0
+	work_kind = ""
+	cook_kind = ""
+	if is_ai:
+		mode = "work"
+		suspicion = 20.0
+		search_list.clear()
+		has_goal = false
 
 ## p가 가까이, 내가 보고 있는 쪽에 있나 (등 뒤는 못 잡는다)
 func _in_front(p: Vector3, dist: float) -> bool:
@@ -598,6 +613,9 @@ func _plan_work() -> void:
 ## 눈으로 본 것을 처리한다.
 func _perceive(dt: float) -> void:
 	var dog = game.dog
+	if not dog.visible or dog.stopped:
+		_perceive_traces()  # 쫓겨난 강아지는 트럭 밖에 있다
+		return
 	var dpos: Vector3 = dog.global_position
 	var sees: bool = can_see(dog.body_point())
 	if not dog.hidden and sees:
@@ -643,6 +661,9 @@ func _perceive(dt: float) -> void:
 	elif rack.count_items() <= expected_rack:
 		rack_alarm = false
 
+	_perceive_traces()
+
+func _perceive_traces() -> void:
 	# 흔적
 	for t in game.traces:
 		if not is_instance_valid(t) or known_traces.has(t.get_instance_id()):
@@ -689,7 +710,7 @@ func _build_search_list(center: Vector3) -> void:
 		if _flat(m.global_position, center) < 4.0:
 			cands.append(m.global_position)
 	cands.sort_custom(func(a, b): return _flat(a, center) < _flat(b, center))
-	search_list = cands.slice(0, 5)
+	search_list = cands.slice(0, 3)  # 헛찌르면 손해라 확신 가는 곳만
 	search_list.push_front(center)
 
 func _next_search_goal() -> void:
@@ -717,7 +738,20 @@ func _poke_result(p: Vector3) -> void:
 		elif _flat(global_position, dog.global_position) < 1.8:
 			game.catch_dog("grab")
 		return
-	say(["그냥 핫도그네.", "여긴 아니야.", "음... 기분 탓인가."].pick_random(), 1.2)
+	# 헛짚었다. 진짜 핫도그를 찔렀으면 손해 (진열대 것은 구멍이 나서 못 판다)
+	var rack = game.rack
+	for i in rack.items.size():
+		var it = rack.items[i]
+		if it is Node3D and it.has_meta("hotdog") and _flat(rack.slot_pos(i), p) < 0.4 and absf(rack.slot_pos(i).y - p.y) < 0.3:
+			rack.set_bitten(it, true)
+			say("아이고, 진열대 핫도그에 구멍이...", 1.6)
+			game.wrong_poke(p)
+			return
+	if game.nearest_decoy(p, 0.6) != null:
+		say("...멀쩡한 핫도그였네.", 1.4)
+		game.wrong_poke(p)
+		return
+	say(["여긴 아니야.", "음... 기분 탓인가."].pick_random(), 1.2)
 
 func _end_search() -> void:
 	mode = "work"
