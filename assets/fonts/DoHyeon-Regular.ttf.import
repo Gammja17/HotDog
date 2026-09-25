@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://dohpdix4cjobc"
-path="res://.godot/imported/Jua-Regular.ttf-69b81abe04d21f5b162d8c70bc8d894b.fontdata"
+uid="uid://bqxqsaom5qnli"
+path="res://.godot/imported/DoHyeon-Regular.ttf-199d7fec024e3023c65f7d36e6649216.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/Jua-Regular.ttf"
-dest_files=["res://.godot/imported/Jua-Regular.ttf-69b81abe04d21f5b162d8c70bc8d894b.fontdata"]
+source_file="res://assets/fonts/DoHyeon-Regular.ttf"
+dest_files=["res://.godot/imported/DoHyeon-Regular.ttf-199d7fec024e3023c65f7d36e6649216.fontdata"]
 
 [params]
 

@@ -35,6 +35,11 @@ var ai_hide_t := 0.0
 var mash_t := 0.0
 var ai_start_t := 5.0       # 처음 몇 초는 트럭 안 눈치를 본다
 
+# 연습(튜토리얼)용
+var scripted := false       # AI가 스스로 움직이지 않는다
+var calm_sniff := false     # 킁킁 게이지가 차도 터지지 않는다
+var calm_tail := false      # 꼬리 게이지가 차도 터지지 않는다
+
 @onready var body_model: Node3D = $Model
 @onready var disguise: Node3D = $Disguise
 @onready var tail_node: Node3D = $Disguise/Tail
@@ -213,7 +218,7 @@ func _cancel_eat() -> void:
 func hear_call(pos: Vector3) -> void:
 	if _flat(global_position, pos) < 6.0:
 		if hidden:
-			tail_pending += 75.0
+			tail_pending += 130.0  # 가만있으면 "왈!". E를 세 번쯤 연타해야 참는다
 		else:
 			say("(움찔)", 1.0)
 
@@ -222,11 +227,15 @@ func _instincts(delta: float) -> void:
 	if hidden:
 		near_food = _smells_food()
 	sniff = clampf(sniff + (14.0 if near_food else -20.0) * delta, 0.0, 100.0)
-	var rise := minf(tail_pending, 60.0 * delta)
+	var rise := minf(tail_pending, 100.0 * delta)
 	tail_pending -= rise
 	tail = clampf(tail + rise - 6.0 * delta, 0.0, 100.0)
 	if not hidden:
 		tail = maxf(tail - 20.0 * delta, 0.0)
+	if calm_sniff:
+		sniff = minf(sniff, 95.0)
+	if calm_tail:
+		tail = minf(tail, 95.0)
 	if hidden and tail >= 100.0:
 		_burst("왈!!", 12.0)
 	elif hidden and sniff >= 100.0:
@@ -278,6 +287,7 @@ func _process(delta: float) -> void:
 		amp = (tail - 20.0) / 80.0 * 0.9
 	tail_node.rotation.y = sin(wiggle) * amp
 	me_label.visible = hidden and not is_ai
+	$Ring.visible = not is_ai
 
 func _physics_process(delta: float) -> void:
 	if stopped:
@@ -338,6 +348,9 @@ static func _flat(a: Vector3, b: Vector3) -> float:
 
 func _ai(delta: float) -> void:
 	var chef = game.chef
+	if scripted:
+		velocity = Vector3.ZERO
+		return
 	if ai_start_t > 0.0:
 		ai_start_t -= delta
 		Anim.play(ap, "Idle")

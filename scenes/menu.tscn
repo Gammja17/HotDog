@@ -1,9 +1,26 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/menu.gd" id="1"]
+[ext_resource type="FontFile" path="res://assets/fonts/DoHyeon-Regular.ttf" id="font_title"]
 
 [sub_resource type="StyleBoxFlat" id="bg"]
 bg_color = Color(0.96, 0.8, 0.36, 1)
+
+[sub_resource type="StyleBoxFlat" id="ask"]
+bg_color = Color(1, 0.96, 0.85, 1)
+border_width_left = 6
+border_width_top = 6
+border_width_right = 6
+border_width_bottom = 6
+border_color = Color(0.82, 0.2, 0.16, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+content_margin_left = 36.0
+content_margin_top = 24.0
+content_margin_right = 36.0
+content_margin_bottom = 24.0
 
 [node name="Menu" type="PanelContainer"]
 anchors_preset = 15
@@ -22,6 +39,7 @@ layout_mode = 2
 theme_override_constants/separation = 16
 
 [node name="Title" type="Label" parent="Center/VBox"]
+theme_override_fonts/font = ExtResource("font_title")
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.2, 0.16, 1)
 theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
@@ -62,11 +80,79 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "둘이서 (한 화면 나눠 보기)"
 
+[node name="Practice" type="HBoxContainer" parent="Center/VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="PracticeChef" type="Button" parent="Center/VBox/Practice"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(204, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "연습하기: 셰프"
+
+[node name="PracticeDog" type="Button" parent="Center/VBox/Practice"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(204, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "연습하기: 강아지"
+
 [node name="Desc" type="Label" parent="Center/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(620, 90)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.3, 0.17, 0.08, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 21
 horizontal_alignment = 1
 autowrap_mode = 3
+
+[node name="Ask" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+color = Color(0, 0, 0, 0.45)
+
+[node name="Center" type="CenterContainer" parent="Ask"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Ask/Center"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("ask")
+
+[node name="VBox" type="VBoxContainer" parent="Ask/Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Question" type="Label" parent="Ask/Center/Panel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 0.17, 0.08, 1)
+theme_override_font_sizes/font_size = 26
+text = "처음이라면 연습부터 해 볼까요?
+(3분쯤 걸려요. 메뉴에서 언제든 다시 할 수 있어요)"
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="Ask/Center/Panel/VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="AskYes" type="Button" parent="Ask/Center/Panel/VBox/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "연습부터"
+
+[node name="AskNo" type="Button" parent="Ask/Center/Panel/VBox/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "바로 시작"

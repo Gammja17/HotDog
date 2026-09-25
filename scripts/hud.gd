@@ -11,6 +11,7 @@ const NEXT := {"": "빵, 그릴, 소스 순서로 만들자", "bun": "그릴로!
 var game: Node
 var mode := ""
 var banner_t := 0.0
+var next_mode := ""   # 연습이 끝나면 "진짜 영업 시작" 버튼이 여는 모드
 
 @onready var time_label: Label = %Time
 @onready var stars_label: Label = %Stars
@@ -33,13 +34,17 @@ var banner_t := 0.0
 func setup(g: Node, m: String) -> void:
 	game = g
 	mode = m
-	chef_box.visible = m != "dog"
-	dog_box.visible = m != "chef"
+	chef_box.visible = m in ["chef", "duo", "watch", "tut_chef"]
+	dog_box.visible = m in ["dog", "duo", "watch", "tut_dog"]
 	chef_hint.text = HINTS["chef_p2" if m == "duo" else "chef_p1"]
 	dog_hint.text = HINTS["dog"]
 	result.visible = false
 	split.visible = m == "duo"
-	%Retry.pressed.connect(func(): get_tree().reload_current_scene())
+	%Retry.pressed.connect(func():
+		if next_mode != "":
+			Session.mode = next_mode
+		get_tree().reload_current_scene()
+	)
 	%Menu.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/menu.tscn"))
 
 ## 둘이서: 왼쪽은 셰프 눈(레이어 1), 오른쪽은 강아지 눈(전부)
@@ -60,12 +65,12 @@ func _process(delta: float) -> void:
 		banner_t -= delta
 		if banner_t < 0.6:
 			banner_label.modulate.a = maxf(banner_t / 0.6, 0.0)
-	if result.visible and Input.is_physical_key_pressed(KEY_R):
+	if result.visible and next_mode == "" and Input.is_physical_key_pressed(KEY_R):
 		get_tree().reload_current_scene()
 
 func refresh() -> void:
 	var t := int(ceil(game.time_left))
-	time_label.text = "남은 시간 %d:%02d" % [t / 60, t % 60]
+	time_label.text = "연습 중" if game.tutorial != null else "남은 시간 %d:%02d" % [t / 60, t % 60]
 	var full := int(game.stars)
 	stars_label.text = "★".repeat(full) + "☆".repeat(5 - full)
 	eaten_label.text = "먹힌 소시지 %d / %d" % [game.eaten, game.EAT_GOAL]
@@ -94,4 +99,12 @@ func show_result(title: String, body: String, chef_won: bool) -> void:
 		me = "이겼다! " if not chef_won else "졌다... "
 	result_title.text = me + title
 	result_body.text = body
+	%Retry.grab_focus()
+
+func show_tutorial_done(title: String, body: String, kind: String) -> void:
+	next_mode = kind
+	result.visible = true
+	result_title.text = title
+	result_body.text = body
+	%Retry.text = "진짜 영업 시작"
 	%Retry.grab_focus()

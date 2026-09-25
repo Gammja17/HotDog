@@ -41,6 +41,12 @@ var known_traces := {}
 var rack_alarm := false
 var idle_turn := 0.0
 
+# 연습(튜토리얼)용: 대본대로만 움직인다
+var scripted := false
+var script_face := Vector3(0, 0, -1)
+var script_goal = null       # Vector3면 그리로 걸어간다
+var script_working := false
+
 @onready var model: Node3D = $Model
 @onready var agent: NavigationAgent3D = $Agent
 @onready var say_label: Label3D = $Say
@@ -82,7 +88,7 @@ func _build_cone() -> void:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color = Color(1, 0.95, 0.4, 0.13)
+	mat.albedo_color = Color(1, 0.9, 0.25, 0.24)
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	cone.material_override = mat
 	cone.position.y = 0.04
@@ -132,11 +138,11 @@ func set_hand(h: String, bitten := false) -> void:
 	if m:
 		held.add_child(m)
 
-func _face(dir: Vector3) -> void:
+func _face(dir: Vector3, weight := 0.25) -> void:
 	dir.y = 0
 	if dir.length() < 0.01:
 		return
-	facing = facing.slerp(dir.normalized(), 0.25).normalized()
+	facing = facing.slerp(dir.normalized(), weight).normalized()
 	rotation.y = atan2(-facing.x, -facing.z)
 
 func _start_work(kind: String, done: Callable) -> void:
@@ -248,7 +254,7 @@ func call_dog() -> void:
 
 ## 소리를 들었다 (강아지가 짖거나 킁킁거림).
 func hear(pos: Vector3, radius: float) -> void:
-	if _flat(global_position, pos) > radius:
+	if scripted or _flat(global_position, pos) > radius:
 		return
 	if is_ai:
 		say("방금 무슨 소리지?", 1.6)
@@ -301,6 +307,9 @@ func _player(delta: float) -> void:
 # ---------------------------------------------------------------- AI
 
 func _ai(delta: float) -> void:
+	if scripted:
+		_scripted(delta)
+		return
 	think_t -= delta
 	if think_t <= 0.0:
 		think_t = 0.15
@@ -340,6 +349,14 @@ func _ai(delta: float) -> void:
 			if not has_goal:
 				_plan_work()
 			_follow_goal(delta, speed)
+
+func _scripted(delta: float) -> void:
+	if script_goal is Vector3 and _flat(global_position, script_goal) > 0.4:
+		_move_to(script_goal, 2.6, delta)
+		return
+	velocity = Vector3.ZERO
+	_face(script_face, 0.05)
+	Anim.play(ap, "Working" if script_working else "Idle")
 
 func _move_to(p: Vector3, spd: float, _delta: float) -> bool:
 	agent.target_position = p

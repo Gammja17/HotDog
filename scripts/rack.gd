@@ -30,6 +30,15 @@ static func set_bitten(h: Node3D, bitten: bool) -> void:
 	m.scale.x = HOTDOG_SCALE * (0.62 if bitten else 1.0)
 	m.position.x = -0.16 if bitten else 0.0
 
+## 셰프가 핫도그를 들고 있으면 빈칸 접시가 은은하게 빛난다.
+func set_highlight(on: bool) -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	for i in slots.size():
+		var mat: StandardMaterial3D = slots[i].get_node("Plate").material_override
+		mat.emission_enabled = on and items[i] == null
+		mat.emission = Color("#ffe08a")
+		mat.emission_energy_multiplier = 0.4 + 0.3 * sin(t * 5.0)
+
 func slot_pos(i: int) -> Vector3:
 	return slots[i].global_position
 

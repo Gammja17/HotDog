@@ -43,7 +43,7 @@ func _run() -> void:
 	chef.act()
 	check(chef.hand == "hotdog", "진열대에서 집는다")
 
-	g._spawn_customer()
+	g.spawn_customer()
 	for i in g.customers.size():
 		g.customers[i].global_position = g._queue_pos(i)
 	await wait(0.2)

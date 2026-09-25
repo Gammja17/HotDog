@@ -5,9 +5,10 @@
 [ext_resource type="PackedScene" path="res://scenes/chef.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/dog.tscn" id="4"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="5"]
+[ext_resource type="FontFile" path="res://assets/fonts/DoHyeon-Regular.ttf" id="font_title"]
 
 [sub_resource type="StyleBoxFlat" id="panel"]
-bg_color = Color(0.1, 0.08, 0.07, 0.78)
+bg_color = Color(0.1, 0.08, 0.07, 0.62)
 corner_radius_top_left = 12
 corner_radius_top_right = 12
 corner_radius_bottom_right = 12
@@ -98,9 +99,9 @@ anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -300.0
-offset_top = 10.0
+offset_top = 4.0
 offset_right = 300.0
-offset_bottom = 58.0
+offset_bottom = 48.0
 grow_horizontal = 2
 theme_override_styles/panel = SubResource("panel")
 
@@ -110,12 +111,14 @@ alignment = 1
 theme_override_constants/separation = 36
 
 [node name="Time" type="Label" parent="HUD/Top/Row"]
+theme_override_fonts/font = ExtResource("font_title")
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 22
 text = "남은 시간 3:00"
 
 [node name="Stars" type="Label" parent="HUD/Top/Row"]
+theme_override_fonts/font = ExtResource("font_title")
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
@@ -123,6 +126,7 @@ theme_override_font_sizes/font_size = 24
 text = "★★★★★"
 
 [node name="Eaten" type="Label" parent="HUD/Top/Row"]
+theme_override_fonts/font = ExtResource("font_title")
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.6, 0.45, 1)
@@ -130,6 +134,7 @@ theme_override_font_sizes/font_size = 24
 text = "먹힌 소시지 0 / 5"
 
 [node name="Banner" type="Label" parent="HUD"]
+theme_override_fonts/font = ExtResource("font_title")
 unique_name_in_owner = true
 anchors_preset = 5
 anchor_left = 0.5
@@ -150,8 +155,8 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 10.0
-offset_top = -110.0
-offset_right = 620.0
+offset_top = -96.0
+offset_right = 560.0
 offset_bottom = -10.0
 grow_vertical = 0
 theme_override_styles/panel = SubResource("panel")
@@ -160,6 +165,7 @@ theme_override_styles/panel = SubResource("panel")
 layout_mode = 2
 
 [node name="Title" type="Label" parent="HUD/ChefBox/VBox"]
+theme_override_fonts/font = ExtResource("font_title")
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "셰프"
@@ -167,19 +173,19 @@ text = "셰프"
 [node name="Hand" type="Label" parent="HUD/ChefBox/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 
 [node name="Call" type="Label" parent="HUD/ChefBox/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 17
 
 [node name="ChefHint" type="Label" parent="HUD/ChefBox/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.75, 0.75, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 15
 autowrap_mode = 3
 
 [node name="DogBox" type="PanelContainer" parent="HUD"]
@@ -189,8 +195,8 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -470.0
-offset_top = -150.0
+offset_left = -380.0
+offset_top = -128.0
 offset_right = -10.0
 offset_bottom = -10.0
 grow_horizontal = 0
@@ -201,23 +207,24 @@ theme_override_styles/panel = SubResource("panel")
 layout_mode = 2
 
 [node name="DogState" type="Label" parent="HUD/DogBox/VBox"]
+theme_override_fonts/font = ExtResource("font_title")
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "몰래 움직이는 중"
 
 [node name="SniffRow" type="HBoxContainer" parent="HUD/DogBox/VBox"]
 layout_mode = 2
 
 [node name="L" type="Label" parent="HUD/DogBox/VBox/SniffRow"]
-custom_minimum_size = Vector2(90, 0)
+custom_minimum_size = Vector2(60, 0)
 layout_mode = 2
 text = "킁킁"
 
 [node name="SniffBar" type="ProgressBar" parent="HUD/DogBox/VBox/SniffRow"]
 unique_name_in_owner = true
 modulate = Color(1, 0.75, 0.4, 1)
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
@@ -227,14 +234,14 @@ show_percentage = false
 layout_mode = 2
 
 [node name="L" type="Label" parent="HUD/DogBox/VBox/TailRow"]
-custom_minimum_size = Vector2(90, 0)
+custom_minimum_size = Vector2(60, 0)
 layout_mode = 2
 text = "꼬리"
 
 [node name="TailBar" type="ProgressBar" parent="HUD/DogBox/VBox/TailRow"]
 unique_name_in_owner = true
 modulate = Color(1, 0.45, 0.45, 1)
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
@@ -244,7 +251,7 @@ show_percentage = false
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.75, 0.75, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 15
 autowrap_mode = 3
 
 [node name="Result" type="CenterContainer" parent="HUD"]
@@ -265,6 +272,7 @@ layout_mode = 2
 theme_override_constants/separation = 18
 
 [node name="ResultTitle" type="Label" parent="HUD/Result/Panel/VBox"]
+theme_override_fonts/font = ExtResource("font_title")
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.75, 0.18, 0.15, 1)

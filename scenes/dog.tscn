@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/dog.gd" id="1"]
 [ext_resource type="PackedScene" path="res://assets/dog/dog.glb" id="2"]
@@ -10,6 +10,15 @@ height = 0.7
 
 [sub_resource type="StandardMaterial3D" id="brown"]
 albedo_color = Color(0.55, 0.33, 0.16, 1)
+
+[sub_resource type="StandardMaterial3D" id="ring_mat"]
+shading_mode = 0
+albedo_color = Color(0.35, 1, 0.45, 1)
+
+[sub_resource type="TorusMesh" id="ring"]
+material = SubResource("ring_mat")
+inner_radius = 0.48
+outer_radius = 0.58
 
 [sub_resource type="CapsuleMesh" id="tail"]
 material = SubResource("brown")
@@ -27,6 +36,11 @@ shape = SubResource("shape")
 
 [node name="Model" parent="." instance=ExtResource("2")]
 transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 0, 0, 0)
+
+[node name="Ring" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.1, 0, 0, 0, 1, 0, 0.03, 0)
+layers = 2
+mesh = SubResource("ring")
 
 [node name="Disguise" type="Node3D" parent="."]
 

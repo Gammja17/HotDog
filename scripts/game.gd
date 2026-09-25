@@ -2,6 +2,7 @@ extends Node3D
 ## 한 판을 관리한다: 시간, 별점, 먹은 소시지, 손님, 흔적, 소리, 승패, 화면 구성.
 
 const RackScript := preload("res://scripts/rack.gd")
+const TutorialScript := preload("res://scripts/tutorial.gd")
 const CUSTOMER := preload("res://scenes/customer.tscn")
 const GAME_TIME := 180.0
 const EAT_GOAL := 5
@@ -31,14 +32,15 @@ var traces: Array = []
 var decoys: Array = []
 var stations := {}
 var spawn_t := 4.0
+var tutorial: Node = null   # 연습 모드일 때만
 
 func _ready() -> void:
 	for st in get_tree().get_nodes_in_group("station"):
 		stations[st.kind] = st
 	var mode: String = Session.mode
 	# watch: AI끼리 (개발용 관전)
-	chef.setup(self, mode in ["dog", "watch"], "p2_" if mode == "duo" else "p1_")
-	dog.setup(self, mode in ["chef", "watch"], "p1_")
+	chef.setup(self, mode in ["dog", "watch", "tut_dog"], "p2_" if mode == "duo" else "p1_")
+	dog.setup(self, mode in ["chef", "watch", "tut_chef"], "p1_")
 	chef.global_position = markers.get_node("ChefSpawn").global_position
 	dog.global_position = markers.get_node("DogSpawn").global_position
 
@@ -52,25 +54,30 @@ func _ready() -> void:
 		rack.place(i, RackScript.new_hotdog())
 	chef.expected_rack = 2
 
-	cam.look_at_from_position(Vector3(0, 12.5, 8.5), Vector3(0, 0, -0.8))
+	cam.look_at_from_position(Vector3(0, 11.2, 7.9), Vector3(0, 0, -0.45))
 	if Session.args.has("cam"):  # 개발용: --cam=x,y,z,tx,ty,tz
 		var v: PackedFloat64Array = Session.args["cam"].split_floats(",")
 		cam.look_at_from_position(Vector3(v[0], v[1], v[2]), Vector3(v[3], v[4], v[5]))
 	# 화면: 셰프 화면은 레이어 1만, 강아지 화면은 전부 보인다
 	match mode:
-		"chef":
+		"chef", "tut_chef":
 			cam.cull_mask = 1
-		"dog", "watch":
+		"dog", "watch", "tut_dog":
 			cam.cull_mask = 1 | 2
 		"duo":
 			cam.current = false
 			hud.setup_split(cam.global_transform)
 	hud.setup(self, mode)
-	banner({
-		"chef": "핫도그를 팔자! 그런데 오늘따라 뭔가 이상하다...",
-		"dog": "배고프다... 들키지 말고 소시지 5개를 먹자!",
-		"duo": "왼쪽 셰프(방향키) vs 오른쪽 강아지(WASD)",
-	}.get(mode, ""))
+	if mode.begins_with("tut_"):
+		tutorial = TutorialScript.new()
+		add_child(tutorial)
+		tutorial.setup(self, mode.trim_prefix("tut_"))
+	else:
+		banner({
+			"chef": "핫도그를 팔자! 그런데 오늘따라 뭔가 이상하다...",
+			"dog": "배고프다... 들키지 말고 소시지 5개를 먹자!",
+			"duo": "왼쪽 셰프(방향키) vs 오른쪽 강아지(WASD)",
+		}.get(mode, ""))
 	# 내비게이션 맵이 준비될 때까지 AI를 한 프레임 멈춘다
 	chef.stopped = true
 	dog.stopped = true
@@ -82,18 +89,33 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if over:
 		return
-	time_left -= delta
-	if time_left <= 0.0:
-		time_left = 0.0
-		end_game("time")
-		return
-	spawn_t -= delta
-	if spawn_t <= 0.0:
-		spawn_t = randf_range(10.0, 16.0)
-		if customers.size() < 3:
-			_spawn_customer()
+	if tutorial == null:
+		time_left -= delta
+		if time_left <= 0.0:
+			time_left = 0.0
+			end_game("time")
+			return
+		spawn_t -= delta
+		if spawn_t <= 0.0:
+			spawn_t = randf_range(10.0, 16.0)
+			if customers.size() < 3:
+				spawn_customer()
 	dog.set_seen(chef.can_see(dog.body_point()))
+	_update_highlights()
 	hud.refresh()
+
+## 사람이 셰프일 때: 지금 든 것을 받는 자리만 빛낸다 (빵을 들면 그릴, 핫도그를 들면 진열대와 창구)
+func _update_highlights() -> void:
+	var want: Array = []
+	if not chef.is_ai:
+		match chef.hand:
+			"": want = ["bread"]
+			"bun": want = ["grill"]
+			"grilled": want = ["sauce"]
+			"hotdog": want = ["window"] if front_customer() != null else []
+	for k in stations:
+		stations[k].set_highlight(k in want)
+	rack.set_highlight(not chef.is_ai and chef.hand == "hotdog")
 
 # ---------------------------------------------------------------- 손님
 
@@ -103,7 +125,7 @@ func _queue_pos(i: int) -> Vector3:
 func customer_exit() -> Vector3:
 	return markers.get_node("CustomerOut").global_position
 
-func _spawn_customer() -> void:
+func spawn_customer() -> void:
 	var c = CUSTOMER.instantiate()
 	c.game = self
 	$Customers.add_child(c)
@@ -124,6 +146,7 @@ func serve(bitten: bool) -> void:
 	var c = customers.pop_front()
 	c.serve(bitten)
 	_reflow()
+	_tut_event("served")
 	if bitten:
 		_lose_star()
 		chef.on_complaint()
@@ -137,7 +160,7 @@ func customer_gave_up(c) -> void:
 
 func _lose_star() -> void:
 	stars -= 1.0
-	if stars <= 0.0:
+	if tutorial == null and stars <= 0.0:
 		stars = 0.0
 		end_game("stars")
 
@@ -177,9 +200,15 @@ func _disc(parent: Node3D, off: Vector3, r: float, mat: Material) -> void:
 
 func make_noise(pos: Vector3, radius: float) -> void:
 	chef.hear(pos, radius)
+	_tut_event("noise")
 
 func chef_call(pos: Vector3) -> void:
 	dog.hear_call(pos)
+	_tut_event("call")
+
+func _tut_event(name: String) -> void:
+	if tutorial != null:
+		tutorial.event(name)
 
 func nearest_decoy(pos: Vector3, dist: float):
 	for d in decoys:
@@ -193,11 +222,17 @@ func catch_dog(how: String) -> void:
 	if over:
 		return
 	dog.caught()
+	if tutorial != null:
+		over = true
+		chef.stop()
+		_tut_event("caught")
+		return
 	end_game(how)
 
 func dog_ate() -> void:
 	eaten += 1
-	if eaten >= EAT_GOAL:
+	_tut_event("ate")
+	if tutorial == null and eaten >= EAT_GOAL:
 		end_game("full")
 
 func end_game(reason: String) -> void:

@@ -3,6 +3,7 @@
 핫도그 트럭 사장님 vs 핫도그로 변장한 강아지. Godot 4.7, 로우폴리 3D 탑뷰.
 
 ## 모드
+- **연습하기 (셰프/강아지)** — 한 단계씩 해 보는 연습 영업. 혼자 하기를 처음 고르면 연습부터 할지 묻는다.
 - **혼자 하기: 셰프** — 핫도그를 만들어 팔면서, 트럭에 숨어든 강아지를 찾아 잡는다. 강아지는 셰프 시야(노란 부채꼴) 안에 있을 때만 보인다.
 - **혼자 하기: 강아지** — 사장님 눈을 피해 소시지 5개를 먹는다. 사장님 머리 위 `?` `?!` `!!`가 의심 정도다.
 - **둘이서** — 화면을 반으로 나눠 왼쪽은 셰프, 오른쪽은 강아지.
@@ -23,9 +24,13 @@
 ## 개발용
 - 맵 다시 만들기: `godot --headless --path . -s tools/build_truck.gd` → `scenes/truck.tscn`
 - 행동 테스트: `godot --path . -s tools/test_actions.gd`
+- 연습(튜토리얼) 테스트: `godot --path . -s tools/test_tutorial.gd`
+- 웹 빌드: `godot --headless --path . --export-release "Web" builds/web/index.html`
 - AI끼리 관전/스크린샷: `godot --path . -- --play --mode=watch --speed=4 --log --shot=res://shot.png --wait=60`
 - Windows 빌드: `godot --headless --path . --export-release "Windows" builds/windows/HotDog.exe`
 
-## 에셋 (모두 CC0)
+## 에셋
+- 폰트: [도현](https://fonts.google.com/specimen/Do+Hyeon), [개구](https://fonts.google.com/specimen/Gaegu) (OFL)
+- 3D 모델 (모두 CC0):
 - [Kenney Food Kit](https://kenney.nl/assets/food-kit), [Kenney Furniture Kit](https://kenney.nl/assets/furniture-kit)
 - [Quaternius Dog](https://poly.pizza/m/2kUk0QqpCg), [Quaternius Animated Human](https://poly.pizza/m/c3Ibh9I3udk)

@@ -3,9 +3,14 @@ extends Node
 ## chef = 혼자 셰프, dog = 혼자 강아지, duo = 둘이서 (강아지 WASD / 셰프 방향키)
 
 var mode := "chef"
+## 모드: chef / dog / duo / tut_chef / tut_dog (연습) / watch (개발용 AI끼리)
+
+const SAVE_PATH := "user://save.cfg"
+var save := ConfigFile.new()
 var args := {}  # 개발용 명령줄 옵션
 
 func _ready() -> void:
+	save.load(SAVE_PATH)
 	_bind("p1_up", [KEY_W])
 	_bind("p1_down", [KEY_S])
 	_bind("p1_left", [KEY_A])
@@ -36,6 +41,14 @@ func _debug_args() -> void:
 		await get_tree().create_timer(float(args.get("wait", "3"))).timeout
 		get_viewport().get_texture().get_image().save_png(args["shot"])
 		get_tree().quit()
+
+## 연습을 끝냈거나, 처음 물었을 때 "바로 시작"을 골랐는지
+func tutorial_seen(kind: String) -> bool:
+	return save.get_value("tutorial", kind, false)
+
+func mark_tutorial_seen(kind: String) -> void:
+	save.set_value("tutorial", kind, true)
+	save.save(SAVE_PATH)
 
 func _bind(action: String, keys: Array, right_shift := false) -> void:
 	if InputMap.has_action(action):

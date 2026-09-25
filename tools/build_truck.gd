@@ -135,25 +135,33 @@ func _prop(path: String, name: String, parent: Node, pos: Vector3, rot_y := 0.0,
 	return holder
 
 func _floor() -> void:
-	# 트럭 바닥 12 x 8 (x -6..6, z -4..4), 바깥 길바닥
+	# 트럭 바닥 12 x 8 (x -6..6, z -4..4): 두 톤 체크무늬. 바깥은 어두운 길바닥
+	var floor_a := _mat(Color("#f7e3b5"))
+	var floor_b := _mat(Color("#e9c98c"))
 	for ix in range(6):
 		for iz in range(4):
-			_prop("res://assets/furniture/floorFull.glb", "Floor_%d_%d" % [ix, iz], top,
-				Vector3(-6 + ix * 2, 0, -4 + iz * 2 + 2), 0.0, S, false)
+			var tile := MeshInstance3D.new()
+			tile.name = "Floor_%d_%d" % [ix, iz]
+			var tm := PlaneMesh.new()
+			tm.size = Vector2(2, 2)
+			tile.mesh = tm
+			tile.material_override = floor_a if (ix + iz) % 2 == 0 else floor_b
+			tile.position = Vector3(-5 + ix * 2, 0.0, -3 + iz * 2)
+			_add(top, tile)
 	_box_body("Ground", nav, Vector3(0, -0.1, 0), Vector3(12, 0.2, 8))
 	var street := MeshInstance3D.new()
 	street.name = "Street"
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(40, 30)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color("#585c66")
+	mat.albedo_color = Color("#454955")
 	pm.material = mat
 	street.mesh = pm
 	street.position = Vector3(0, -0.02, 0)
 	_add(top, street)
 
 func _walls() -> void:
-	var wall_col := Color("#e8c46a")  # 노란 푸드트럭 벽
+	var wall_col := Color("#e2a63a")  # 노란 푸드트럭 벽 (바닥보다 진하게)
 	_box_body("WallLeft", nav, Vector3(-6.15, 0.6, 0), Vector3(0.3, 1.2, 8.3), wall_col)
 	_box_body("WallRight", nav, Vector3(6.15, 0.6, 0), Vector3(0.3, 1.2, 8.3), wall_col)
 	_box_body("WallBackL", nav, Vector3(-3.075, 1.1, -4.15), Vector3(6.15, 2.2, 0.3), wall_col)
@@ -174,6 +182,27 @@ func _walls() -> void:
 	aw.position = Vector3(1.72, 2.3, -4.3)
 	_add(top, aw)
 
+func _mat(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	return m
+
+func _flat_box(name: String, parent: Node, pos: Vector3, size: Vector3, c: Color) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.name = name
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	mi.material_override = _mat(c)
+	mi.position = pos
+	_add(parent, mi)
+	return mi
+
+const STATION_COLOR := {
+	"fridge": Color("#7fbfe6"), "bread": Color("#f2c230"), "grill": Color("#e0503a"),
+	"sauce": Color("#f08a30"), "window": Color("#4fb860"),
+}
+
 func _station(kind: String, at: Vector3, label: String) -> void:
 	var st := Node3D.new()
 	st.name = "Station_" + kind
@@ -182,13 +211,19 @@ func _station(kind: String, at: Vector3, label: String) -> void:
 	st.position = at
 	st.add_to_group("station", true)
 	_add(top, st)
+	var c: Color = STATION_COLOR[kind]
+	_flat_box("Mat", st, Vector3(0, 0.012, 0.05), Vector3(0.84, 0.02, 0.8), c)
 	var l := Label3D.new()
 	l.name = "Sign"
+	l.font = load("res://assets/fonts/DoHyeon-Regular.ttf")
 	l.text = label
-	l.font_size = 40
-	l.outline_size = 10
-	l.position = Vector3(0, 2.1, -0.4)
+	l.font_size = 72
+	l.outline_size = 18
+	l.modulate = c.lightened(0.45)
+	l.outline_modulate = c.darkened(0.6)
+	l.position = Vector3(0, 2.3, -0.5)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
 	_add(st, l)
 
 func _kitchen() -> void:
@@ -216,6 +251,7 @@ func _kitchen() -> void:
 	_station("grill", Vector3(-3.57, 0, -2.6), "그릴")
 	_station("sauce", Vector3(-2.57, 0, -2.6), "소스")
 	_station("window", Vector3(1.72, 0, -2.9), "판매 창구")
+	(top.get_node("Station_window/Mat") as MeshInstance3D).mesh.size = Vector3(3.2, 0.02, 0.8)
 
 func _rack() -> void:
 	# 가운데 섬: 진열대 (핫도그 6칸). 강아지가 빈칸에 숨을 수 있다.
@@ -237,14 +273,21 @@ func _rack() -> void:
 			m.name = "Slot%d" % n
 			m.position = Vector3(-0.86 + col * 0.86, 0.92, -0.2 + row * 0.5)
 			_add(slots, m)
+			# 칸 접시: 빈칸도 한눈에 보이게
+			_flat_box("Plate", m, Vector3(0, -0.005, 0), Vector3(0.78, 0.012, 0.42), Color("#fff4d8"))
 			n += 1
+	_flat_box("Warmer", rack, Vector3(0, 0.905, 0.05), Vector3(2.62, 0.02, 1.0), Color("#c9362e"))
 	var l := Label3D.new()
 	l.name = "Sign"
+	l.font = load("res://assets/fonts/DoHyeon-Regular.ttf")
 	l.text = "진열대"
-	l.font_size = 40
-	l.outline_size = 10
-	l.position = Vector3(0, 1.9, 0)
+	l.font_size = 72
+	l.outline_size = 18
+	l.modulate = Color("#ffd9d0")
+	l.outline_modulate = Color("#5a1410")
+	l.position = Vector3(0, 1.8, 0)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
 	_add(rack, l)
 
 func _clutter() -> void:
