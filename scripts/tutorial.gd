@@ -141,6 +141,10 @@ func _chef_steps() -> Array:
 			"done": func(): return ev.has("served"),
 		},
 		{
+			"text": "핫도그를 산 손님은 창문 밖 장터 테이블에서 먹는다. 마우스로 창구 쪽을 둘러보자.\n강아지는 저 손님 핫도그도 노린다. 하지만 장터까지 쫓아가면 창구가 비어 장사가 멈춘다!",
+			"done": func(): return step_t > 6.0,
+		},
+		{
 			"text": "손님이 몰릴 때를 대비해 미리 만들어 두면 좋다.\n하나 더 만들어서, 트럭 가운데 진열대 앞에서 Space로 빈칸에 올리자.",
 			"enter": func(): mem["rack"] = game.rack.count_items(),
 			"done": func(): return game.rack.count_items() > mem["rack"],
@@ -182,7 +186,7 @@ func _dog_steps() -> Array:
 			"done": func(): return _flat(dog.global_position, mem["start"]) > 1.5,
 		},
 		{
-			"text": "노란 부채꼴은 사장님 눈에 보이는 범위다. 저 안에 들어가면 들킨다.\n지금 사장님은 조리대만 보고 있다. 부채꼴을 피해 진열대(가운데 빨간 판) 앞까지 가 보자.",
+			"text": "노란 부채꼴은 사장님 눈에 보이는 범위다. 저 안에 들어가면 들킨다.\n지금 사장님은 조리대만 보고 있다. 트럭 오른쪽 뒷문으로 들어가서, 부채꼴을 피해 진열대(가운데 빨간 판) 앞까지 가 보자.",
 			"done": func(): return rack.nearest(dog.global_position, "hotdog", 1.4) >= 0,
 			"hint": func(): return "앗, 부채꼴 안이다! 얼른 빠져나가자." if chef.can_see(dog.body_point()) else "",
 		},
@@ -256,6 +260,35 @@ func _dog_steps() -> Array:
 					return "(너무 멀다. 진열대 근처의 사장님 가까이에 숨자)"
 				if mem["called_t"] >= 0.0:
 					return "E 연타! 꼬리를 참아라!"
+				return "",
+		},
+		{
+			"text": "이번엔 장터다! 뒷문으로 나가자.\n핫도그를 산 손님은 장터 테이블에서 서서 먹는다. 핫도그를 들고 있는 손님 옆으로 가 보자.",
+			"enter": func():
+				dog.calm_tail = true
+				chef.script_goal = null
+				chef.global_position = game.stations["bread"].global_position
+				chef.script_face = Vector3(0, 0, -1)
+				chef.script_working = true
+				mem["eater"] = game.spawn_eating_customer(7),
+			"done": func(): return is_instance_valid(mem["eater"]) and _flat(dog.global_position, mem["eater"].global_position) < 1.4,
+			"hint": func(): return "(뒷문은 트럭 오른쪽 벽에 있다)" if chef.in_truck(dog.global_position) else "",
+		},
+		{
+			"text": "E를 눌러 손님 핫도그를 뺏어 먹자!\n소시지 하나를 번 대신, 손님이 화내서 사장님 별점이 깎인다.",
+			"done": func(): return ev.has("ate") and is_instance_valid(mem["eater"]) and not mem["eater"].has_food(),
+		},
+		{
+			"text": "마지막! Q로 짖으면 근처 손님이 겁먹는다.\n창구 앞 줄로 가서 짖어 보자. 줄 선 손님이 도망가면 사장님 매출이 줄어든다. 대신 사장님에게 소리가 들린다!",
+			"enter": func():
+				for i in 2:
+					game.spawn_customer()
+					game.customers[-1].global_position = game._queue_pos(game.customers.size() - 1)
+				dog.bark_cd = 0.0,
+			"done": func(): return ev.has("scared"),
+			"hint": func():
+				if ev.has("bark"):
+					return "(너무 멀다. 줄 선 손님 가까이에서 짖자)"
 				return "",
 		},
 	]

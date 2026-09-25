@@ -3,7 +3,7 @@ extends Node3D
 ## 핫도그를 받으면 장터 스탠드 테이블에서 서서 먹다가 떠난다. 그동안 강아지가 노린다.
 
 const PATIENCE := 45.0
-const EAT_TIME := 16.0
+const EAT_TIME := 12.0
 const ORDERS := ["핫도그 하나요!", "하나 주세요~", "케첩 많이요!", "빨리요, 버스 와요!"]
 
 var game: Node
@@ -23,6 +23,7 @@ var net_id := 0
 @onready var wait_label: Label3D = $Wait
 @onready var hat: MeshInstance3D = $Hat
 @onready var food: Node3D = $Food
+@onready var agent: NavigationAgent3D = $Agent
 var ap: AnimationPlayer
 var say_t := 0.0
 
@@ -108,12 +109,22 @@ func _process(delta: float) -> void:
 		say_t -= delta
 		if say_t <= 0.0:
 			say_label.text = ""
+	# 길찾기로 테이블, 덤불을 돌아서 걷는다 (장터 밖 출입구는 길 밖이라 마지막엔 곧장 간다)
 	var to := target - position
 	to.y = 0
 	if to.length() > 0.1:
-		var step := to.normalized() * 2.4 * delta
+		agent.target_position = target
+		var nxt := agent.get_next_path_position()
+		var dir := nxt - position
+		dir.y = 0
+		# 길 끝(장터 출입구처럼 길 밖 목적지 바로 앞)에 닿았으면 곧장 간다. 안 그러면 길 끝과 목적지 사이에서 떤다
+		var end := agent.get_final_position()
+		var end_gap := Vector2(target.x - end.x, target.z - end.z).length()
+		if agent.is_navigation_finished() or dir.length() < 0.05 or to.length() < end_gap + 0.4:
+			dir = to
+		var step := dir.normalized() * 2.4 * delta
 		position += step if step.length() < to.length() else to
-		model.rotation.y = atan2(to.x, to.z)
+		model.rotation.y = atan2(dir.x, dir.z)
 		Anim.play(ap, "Walk")
 	else:
 		Anim.play(ap, "Idle")

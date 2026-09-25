@@ -46,19 +46,20 @@ func _run() -> void:
 	await wait(4.0)  # 손님이 창구까지 걸어온다
 	chef.global_position = st["window"].global_position; chef.act()
 	await until_step(4)
+	await until_step(5, 9.0)  # 장터 설명 (읽기)
 	for k in ["bread", "grill", "sauce"]:
 		chef.global_position = st[k].global_position; chef.act()
 		await wait({"bread": 1.0, "grill": 5.3, "sauce": 2.5}[k])
 	chef.global_position = Vector3(0, 0, 1.65); chef.act()
-	await until_step(5)
-	chef.global_position = Vector3(4.2, 0, 1.6)
 	await until_step(6)
-	chef.call_dog()
+	chef.global_position = Vector3(4.2, 0, 1.6)
 	await until_step(7)
+	chef.call_dog()
+	await until_step(8)
 	chef.global_position = g.dog.global_position + Vector3(-0.8, 0, 0)
 	chef.set_look(-PI / 2.0, -0.3)  # 강아지 쪽(+x)을 본다
 	chef.act()
-	await until_step(8)
+	await until_step(9)
 	print(("  ok   " if g.hud.result.visible else "  FAIL ") + "연습 끝 창")
 	if not g.hud.result.visible: fails += 1
 
@@ -103,6 +104,20 @@ func _run() -> void:
 	if not ok:
 		fails += 1
 		print("       멈춘 곳: ", g.tutorial.panel.get_node("%Text").text.replace("\n", " / "))
+	# 장터: 먹는 손님 옆으로, 뺏어 먹기, 줄 앞에서 짖기
+	await wait(1.5)
+	if dog.hidden:
+		dog.toggle_hide()
+	await wait(0.3)
+	var eater = g.tutorial.mem["eater"]
+	dog.global_position = eater.global_position + Vector3(0.6, 0, 0.5)
+	await until_step(9)
+	dog.try_eat()
+	await until_step(10, 5.0)
+	dog.global_position = g._queue_pos(0) + Vector3(1.2, 0, 0)
+	await wait(0.2)
+	dog.bark()
+	await until_step(11, 5.0)
 	print(("  ok   " if g.hud.result.visible else "  FAIL ") + "연습 끝 창")
 	if not g.hud.result.visible: fails += 1
 	print("FAILS: ", fails)

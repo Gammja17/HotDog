@@ -35,6 +35,7 @@
 - 맵 다시 만들기: `godot --headless --path . -s tools/build_truck.gd` → `scenes/truck.tscn`
 - 행동 테스트: `godot --path . -s tools/test_actions.gd`
 - 조리 손맛 테스트 (연타, 초록 칸만 노리기): `godot --headless --path . -s tools/test_mash.gd`
+- 손님 길찾기 테스트 (테이블을 돌아가는지, 장터 밖으로 나가는지): `godot --headless --path . -s tools/test_customer_path.gd`
 - 연습(튜토리얼) 테스트: `godot --path . -s tools/test_tutorial.gd`
 - 웹 빌드: `godot --headless --path . --export-release "Web" builds/web/index.html`
 - 온라인 테스트 (크롬 두 개): `builds/web`에서 `python -m http.server 8766 --bind 127.0.0.1` 후 `node tools/web_online_test.mjs <화면 저장 폴더>`

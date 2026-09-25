@@ -460,7 +460,7 @@ func _markers() -> void:
 		for side in [-1.0, 1.0]:
 			var m := Marker3D.new()
 			m.name = "Eat%d_%d" % [t, 0 if side < 0 else 1]
-			m.position = TABLES[t] + Vector3(side * 1.05, 0, 0.1)
+			m.position = TABLES[t] + Vector3(side * 1.3, 0, 0.1)  # 테이블 옆, 길찾기로 닿는 곳
 			m.add_to_group("eat_spot", true)
 			_add(g, m)
 	# AI 강아지가 숨으러 가는 구석

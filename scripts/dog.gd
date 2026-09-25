@@ -319,6 +319,14 @@ func bark() -> void:
 	say("왈왈!!", 1.4, true)
 	game.dog_bark(global_position)
 
+## 셰프가 뒷문 밖으로 나와 "저리 가!": 가까이 있던 강아지는 멀리 달아난다 (AI), 사람은 말풍선만
+func shooed(from: Vector3) -> void:
+	if _flat(global_position, from) > 6.0 or stopped:
+		return
+	say("(움찔!)", 1.2)
+	if is_ai and not hidden:
+		_ai_go_hide(game.chef)
+
 ## 잡혀서 장터로 던져진다. 잠깐 어질어질하다가 다시 움직인다
 func thrown(to: Vector3) -> void:
 	var tw := create_tween()

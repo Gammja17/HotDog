@@ -207,7 +207,10 @@ func _update_highlights() -> void:
 # ---------------------------------------------------------------- 손님
 
 func _queue_pos(i: int) -> Vector3:
-	return markers.get_node("Queue%d" % i).global_position
+	if i <= 2:
+		return markers.get_node("Queue%d" % i).global_position
+	# 줄이 길어지면 셋째 자리 뒤로 이어 선다
+	return markers.get_node("Queue2").global_position + Vector3(1.2, 0, -0.4) * (i - 2)
 
 ## 가까운 장터 출입구 (동쪽, 서쪽)
 func customer_exit(from := Vector3(99, 0, 0)) -> Vector3:
@@ -282,6 +285,7 @@ func customers_near(p: Vector3, r: float) -> int:
 
 ## 짖기: 근처 손님이 겁먹고, 셰프에게 소리가 들린다
 func dog_bark(p: Vector3) -> void:
+	_tut_event("bark")
 	sfx("bark", p, 4.0, 1.05)
 	make_noise(p, 14.0)
 	for c in $Customers.get_children():
@@ -291,15 +295,35 @@ func dog_bark(p: Vector3) -> void:
 func customer_scared(c) -> void:
 	customers.erase(c)
 	_reflow()
+	chef.on_disturbance(c.global_position)
+	_tut_event("scared")
 
 ## 강아지가 테이블 손님 핫도그를 뺏어 먹었다
 func customer_robbed(c) -> void:
 	c.stolen()
 	make_noise(c.global_position, 10.0)
+	chef.on_disturbance(c.global_position)
 	banner("손님 핫도그를 강아지가 뺏어 먹었다! (별점 -0.5)")
 	_lose_star(0.5)
 
 ## 손님이 떨어뜨린 핫도그: 바닥 핫도그가 하나 늘어난다 (강아지 먹이이자 숨을 곳)
+## 연습용: 장터 테이블에서 핫도그를 먹고 있는 손님을 바로 세운다
+func spawn_eating_customer(spot_index := 0) -> Node:
+	var c = CUSTOMER.instantiate()
+	c.game = self
+	c.net_id = next_customer_id
+	next_customer_id += 1
+	$Customers.add_child(c)
+	var spot: Node3D = eat_spots.keys()[spot_index % eat_spots.size()]
+	eat_spots[spot] = c
+	c.eat_spot = spot
+	c.global_position = spot.global_position
+	c.target = spot.global_position
+	c.state = "eating"
+	c.eat_t = 999.0
+	c.food.visible = true
+	return c
+
 func add_decoy(p: Vector3, rot := randf_range(-1.0, 1.0)) -> void:
 	var h: Node3D = RackScript.new_hotdog()
 	$Decoys.add_child(h)

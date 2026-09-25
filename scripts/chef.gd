@@ -48,6 +48,7 @@ var search_list: Array = []
 var known_traces := {}
 var rack_alarm := false
 var idle_turn := 0.0
+var shoo_cd := 0.0          # 장터로 쫓아내러 나가는 건 가끔만
 
 # 연습(튜토리얼)용: 대본대로만 움직인다
 var scripted := false
@@ -415,6 +416,29 @@ func hear(pos: Vector3, radius: float) -> void:
 		say("방금 무슨 소리지?" if in_truck(pos) else "밖에서 개 짖는 소리가...", 1.6)
 		_raise(55.0 if in_truck(pos) else 25.0, pos)
 
+## 장터에서 소란 (손님 핫도그를 뺏기거나, 손님이 겁먹음): 가끔 뒷문 밖으로 나가 "저리 가!"
+func on_disturbance(pos: Vector3) -> void:
+	if not is_ai or scripted or mode != "work" or shoo_cd > 0.0 or randf() > 0.7:
+		return
+	shoo_cd = 20.0
+	mode = "shoo"
+	has_goal = false
+	work_left = 0.0
+	work_kind = ""
+	var door: Vector3 = game.markers.get_node("DoorOutside").global_position
+	var dir := pos - door
+	dir.y = 0
+	var stand := door + dir.limit_length(3.0)  # 뒷문에서 3m까지만 나간다
+	say("밖에서 무슨 일이야?!", 1.4)
+	_set_goal(stand, func():
+		_face(pos - global_position)
+		say(["저리 가!! 이 녀석!", "손님 건드리지 마!", "훠이! 훠이!"].pick_random(), 1.8)
+		game.dog.shooed(global_position)
+		_start_work("poke", func():
+			mode = "work"
+			has_goal = false)
+	)
+
 ## 손님이 털 나왔다고 항의했다.
 func on_complaint() -> void:
 	if is_ai:
@@ -428,6 +452,7 @@ func _physics_process(delta: float) -> void:
 		if say_t <= 0.0:
 			say_label.text = ""
 	call_cd = maxf(call_cd - delta, 0.0)
+	shoo_cd = maxf(shoo_cd - delta, 0.0)
 	if stopped or puppet:
 		return
 	if is_ai:
@@ -559,6 +584,8 @@ func _ai(delta: float) -> void:
 			if not has_goal:
 				_plan_work()
 			_follow_goal(delta, speed)
+		"shoo":
+			_follow_goal(delta, 3.8)
 
 func _scripted(delta: float) -> void:
 	if script_goal is Vector3 and _flat(global_position, script_goal) > 0.4:
@@ -849,7 +876,7 @@ func apply_net(d: Dictionary, snap: bool) -> void:
 	call_cd = d.cd
 
 func _update_mark() -> void:
-	if mode == "chase":
+	if mode == "chase" or mode == "shoo":
 		mark_label.text = "!!"
 		mark_label.modulate = Color(1, 0.25, 0.2)
 	elif mode == "search":
