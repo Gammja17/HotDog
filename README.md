@@ -23,7 +23,8 @@
 ## 개발용
 - 맵 다시 만들기: `godot --headless --path . -s tools/build_truck.gd` → `scenes/truck.tscn`
 - 행동 테스트: `godot --path . -s tools/test_actions.gd`
-- AI끼리 관전/스크린샷: `godot --path . scenes/main.tscn -- --mode=watch --speed=4 --log --shot=res://shot.png --wait=60`
+- AI끼리 관전/스크린샷: `godot --path . -- --play --mode=watch --speed=4 --log --shot=res://shot.png --wait=60`
+- Windows 빌드: `godot --headless --path . --export-release "Windows" builds/windows/HotDog.exe`
 
 ## 에셋 (모두 CC0)
 - [Kenney Food Kit](https://kenney.nl/assets/food-kit), [Kenney Furniture Kit](https://kenney.nl/assets/furniture-kit)

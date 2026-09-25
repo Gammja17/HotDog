@@ -20,7 +20,7 @@ func _ready() -> void:
 	_bind("p2_skill", [KEY_SHIFT, KEY_KP_PERIOD], true)
 	_debug_args()
 
-## 개발용: godot --path . scenes/main.tscn -- --mode=dog --shot=res://shot.png --wait=3
+## 개발용: godot --path . -- --play --mode=dog --shot=res://shot.png --wait=3
 ## 지정한 모드로 바로 시작하고, 몇 초 뒤 화면을 저장하고 끈다.
 func _debug_args() -> void:
 	for a in OS.get_cmdline_user_args():
@@ -30,6 +30,8 @@ func _debug_args() -> void:
 		Engine.time_scale = float(args["speed"])
 	if args.has("mode"):
 		mode = args["mode"]
+	if args.has("play"):  # 메뉴를 건너뛰고 바로 한 판
+		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
 	if args.has("shot"):
 		await get_tree().create_timer(float(args.get("wait", "3"))).timeout
 		get_viewport().get_texture().get_image().save_png(args["shot"])
