@@ -148,7 +148,7 @@ func _start_work(kind: String, done: Callable) -> void:
 func _tick_work(delta: float) -> void:
 	work_left -= delta
 	var n := int(8.0 * (1.0 - work_left / work_total))
-	bar_label.text = "■".repeat(clampi(n, 0, 8)) + "□".repeat(clampi(8 - n, 0, 8))
+	bar_label.text = "=".repeat(clampi(n, 0, 8)) + "-".repeat(clampi(8 - n, 0, 8))
 	if work_left <= 0.0:
 		bar_label.text = ""
 		work_left = 0.0

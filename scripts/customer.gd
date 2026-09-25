@@ -70,7 +70,7 @@ func _process(delta: float) -> void:
 			say(ORDERS.pick_random(), 2.2)
 		patience -= delta
 		var n := int(ceil(patience / PATIENCE * 6.0))
-		wait_label.text = "●".repeat(maxi(n, 0)) + "○".repeat(6 - maxi(n, 0))
+		wait_label.text = "=".repeat(maxi(n, 0)) + "-".repeat(6 - maxi(n, 0))
 		wait_label.modulate = Color(0.4, 1, 0.4).lerp(Color(1, 0.3, 0.2), 1.0 - patience / PATIENCE)
 		if patience <= 0.0:
 			say(["안 기다려!", "여기 장사 안 해요?!", "별점 하나 드릴게요."].pick_random(), 2.5)

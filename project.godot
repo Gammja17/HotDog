@@ -29,3 +29,9 @@ theme/custom_font="res://assets/fonts/Jua-Regular.ttf"
 3d_physics/layer_1="world"
 3d_physics/layer_2="chef"
 3d_physics/layer_3="dog"
+
+[rendering]
+
+# 웹과 데스크톱이 같은 모습이 되도록 가벼운 렌더러로 통일
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

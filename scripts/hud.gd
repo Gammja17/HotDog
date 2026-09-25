@@ -2,11 +2,11 @@ extends CanvasLayer
 ## 화면 위 정보: 남은 시간, 별점, 먹은 소시지, 셰프 손, 강아지 본능 게이지, 결과 창.
 
 const HINTS := {
-	"chef_p1": "WASD 이동 · Space 행동 (빵/그릴/소스/진열/판매/집게) · E \"누가 착한 아이지~?\"",
-	"chef_p2": "방향키 이동 · Enter 행동 · 오른쪽 Shift \"누가 착한 아이지~?\"",
-	"dog": "WASD 이동 · Space 변장/나오기 · E 먹기 (숨었을 때는 연타해서 꼬리 참기)",
+	"chef_p1": "WASD 이동  /  Space 행동 (빵/그릴/소스/진열/판매/집게)  /  E \"누가 착한 아이지~?\"",
+	"chef_p2": "방향키 이동  /  Enter 행동  /  오른쪽 Shift \"누가 착한 아이지~?\"",
+	"dog": "WASD 이동  /  Space 변장/나오기  /  E 먹기 (숨었을 때는 연타해서 꼬리 참기)",
 }
-const NEXT := {"": "빵 → 그릴 → 소스 순서로 만들자", "bun": "그릴로!", "grilled": "소스로!", "hotdog": "진열대나 판매 창구로!"}
+const NEXT := {"": "빵, 그릴, 소스 순서로 만들자", "bun": "그릴로!", "grilled": "소스로!", "hotdog": "진열대나 판매 창구로!"}
 
 var game: Node
 var mode := ""
@@ -67,13 +67,12 @@ func refresh() -> void:
 	var t := int(ceil(game.time_left))
 	time_label.text = "남은 시간 %d:%02d" % [t / 60, t % 60]
 	var full := int(game.stars)
-	var half: bool = game.stars - full >= 0.5
-	stars_label.text = "★".repeat(full) + ("☆" if half else "") + "·".repeat(5 - full - int(half))
+	stars_label.text = "★".repeat(full) + "☆".repeat(5 - full)
 	eaten_label.text = "먹힌 소시지 %d / %d" % [game.eaten, game.EAT_GOAL]
 	var chef = game.chef
 	if chef_box.visible:
 		var bitten := " (한 입 먹힘!)" if chef.hand_bitten and chef.hand == "hotdog" else ""
-		hand_label.text = "손: %s%s  —  %s" % [chef.HAND_TEXT[chef.hand], bitten, NEXT[chef.hand]]
+		hand_label.text = "손: %s%s  /  %s" % [chef.HAND_TEXT[chef.hand], bitten, NEXT[chef.hand]]
 		call_label.text = "부르기 준비됨" if chef.call_cd <= 0.0 else "부르기 %d초" % ceil(chef.call_cd)
 	var dog = game.dog
 	if dog_box.visible:

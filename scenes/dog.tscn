@@ -57,7 +57,7 @@ no_depth_test = true
 modulate = Color(0.6, 1, 0.6, 1)
 font_size = 32
 outline_size = 10
-text = "▼ 나"
+text = "나"
 
 [node name="Bar" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0)
