@@ -1,0 +1,67 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/chef.gd" id="1"]
+[ext_resource type="PackedScene" path="res://assets/people/human.glb" id="2"]
+
+[sub_resource type="CapsuleShape3D" id="shape"]
+radius = 0.35
+height = 1.7
+
+[sub_resource type="StandardMaterial3D" id="white"]
+albedo_color = Color(1, 1, 1, 1)
+
+[sub_resource type="CylinderMesh" id="hat"]
+material = SubResource("white")
+top_radius = 0.2
+bottom_radius = 0.15
+height = 0.32
+
+[node name="Chef" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1")
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+shape = SubResource("shape")
+
+[node name="Model" parent="." instance=ExtResource("2")]
+transform = Transform3D(-0.31, 0, 0, 0, 0.31, 0, 0, 0, -0.31, 0, 0, 0)
+
+[node name="Hat" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.85, 0)
+mesh = SubResource("hat")
+
+[node name="Held" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, -0.45)
+
+[node name="Cone" type="MeshInstance3D" parent="."]
+
+[node name="Say" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
+billboard = 1
+no_depth_test = true
+font_size = 44
+outline_size = 12
+text = "..."
+
+[node name="Bar" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.25, 0)
+billboard = 1
+no_depth_test = true
+modulate = Color(1, 0.9, 0.4, 1)
+font_size = 36
+outline_size = 10
+
+[node name="Mark" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.05, 0)
+layers = 2
+billboard = 1
+no_depth_test = true
+font_size = 72
+outline_size = 16
+
+[node name="Agent" type="NavigationAgent3D" parent="."]
+path_desired_distance = 0.4
+target_desired_distance = 0.4
+radius = 0.4

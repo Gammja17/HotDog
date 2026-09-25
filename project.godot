@@ -1,0 +1,31 @@
+; Engine configuration file.
+
+config_version=5
+
+[application]
+
+config/name="HOT 'DOG'"
+run/main_scene="res://scenes/menu.tscn"
+config/features=PackedStringArray("4.7")
+
+[autoload]
+
+Session="*res://scripts/session.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[gui]
+
+theme/custom_font="res://assets/ui/font.tres"
+
+[layer_names]
+
+3d_render/layer_1="everyone"
+3d_render/layer_2="dog_only"
+3d_physics/layer_1="world"
+3d_physics/layer_2="chef"
+3d_physics/layer_3="dog"
