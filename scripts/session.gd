@@ -8,6 +8,7 @@ var mode := "chef"
 const SAVE_PATH := "user://save.cfg"
 var save := ConfigFile.new()
 var args := {}  # 개발용 명령줄 옵션
+var invite_code := ""  # 초대 링크(?join=코드)로 열었을 때
 
 func _ready() -> void:
 	save.load(SAVE_PATH)

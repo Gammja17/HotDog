@@ -69,6 +69,14 @@ theme_override_font_sizes/font_size = 64
 text = "ABCD"
 horizontal_alignment = 1
 
+[node name="CopyLink" type="Button" parent="Center/VBox"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "초대 링크 복사하기 (친구가 누르면 바로 들어와요)"
+
 [node name="Gap" type="Control" parent="Center/VBox"]
 custom_minimum_size = Vector2(0, 10)
 layout_mode = 2

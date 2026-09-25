@@ -25,6 +25,18 @@ func _ready() -> void:
 		_start(pending)
 	)
 	%Chef.grab_focus()
+	# 초대 링크로 열었으면 바로 온라인 방으로
+	if OS.has_feature("web"):
+		var dh := str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('devhost') || ''", true))
+		if dh != "" and not Net.online:
+			Session.args["devhost"] = dh
+			get_tree().change_scene_to_file.call_deferred("res://scenes/lobby.tscn")
+			return
+	var code := Net.invited_code()
+	if code != "" and not Net.online:
+		Session.invite_code = code
+		JavaScriptBridge.eval("history.replaceState(null, '', location.pathname)")  # 새로고침해도 또 들어가지 않게
+		get_tree().change_scene_to_file.call_deferred("res://scenes/lobby.tscn")
 
 func _pick(m: String) -> void:
 	if m == "online":
