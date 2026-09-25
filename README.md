@@ -30,7 +30,7 @@
 - Windows 빌드: `godot --headless --path . --export-release "Windows" builds/windows/HotDog.exe`
 
 ## 에셋
-- 폰트: [도현](https://fonts.google.com/specimen/Do+Hyeon), [개구](https://fonts.google.com/specimen/Gaegu) (OFL)
+- 폰트: [도현](https://fonts.google.com/specimen/Do+Hyeon) (OFL)
 - 3D 모델 (모두 CC0):
 - [Kenney Food Kit](https://kenney.nl/assets/food-kit), [Kenney Furniture Kit](https://kenney.nl/assets/furniture-kit)
 - [Quaternius Dog](https://poly.pizza/m/2kUk0QqpCg), [Quaternius Animated Human](https://poly.pizza/m/c3Ibh9I3udk)

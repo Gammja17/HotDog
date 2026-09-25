@@ -35,6 +35,10 @@ func _debug_args() -> void:
 		Engine.time_scale = float(args["speed"])
 	if args.has("mode"):
 		mode = args["mode"]
+	if args.has("net-host"):  # 개발용: 바로 방 만들기 (역할 chef/dog)
+		Net.host.call_deferred(args["net-host"])
+	if args.has("net-join"):  # 개발용: 바로 방 들어가기
+		Net.join.call_deferred(args["net-join"])
 	if args.has("play"):  # 메뉴를 건너뛰고 바로 한 판
 		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
 	if args.has("shot"):

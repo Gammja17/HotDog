@@ -1,0 +1,10 @@
+# Render 블루프린트: 중계 서버 (무료 요금제)
+services:
+  - type: web
+    name: hotdog-relay
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node relay.js
+    healthCheckPath: /

@@ -9,6 +9,9 @@ var target := Vector3.ZERO
 var patience := PATIENCE
 var leaving := false
 var served := false
+var hue := randf()
+var puppet := false     # 온라인 손님 쪽: 방장이 보낸 상태만 보여 준다
+var net_id := 0
 
 @onready var model: Node3D = $Model
 @onready var say_label: Label3D = $Say
@@ -20,9 +23,21 @@ var say_t := 0.0
 func _ready() -> void:
 	ap = Anim.setup(model)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.from_hsv(randf(), 0.6, 0.9)
+	mat.albedo_color = Color.from_hsv(hue, 0.6, 0.9)
 	hat.material_override = mat
 	wait_label.text = ""
+
+func net_state() -> Array:
+	return [net_id, position.x, position.z, model.rotation.y, ap.get_meta("cur", ["Idle", 1.0]) if ap else ["Idle", 1.0],
+		say_label.text, wait_label.text, wait_label.modulate.to_html(), hue]
+
+func apply_net(d: Array) -> void:
+	position = position.lerp(Vector3(d[1], 0, d[2]), 0.35)
+	model.rotation.y = lerp_angle(model.rotation.y, d[3], 0.35)
+	Anim.play(ap, d[4][0], d[4][1])
+	say_label.text = d[5]
+	wait_label.text = d[6]
+	wait_label.modulate = Color.html(d[7])
 
 func say(text: String, t := 2.0) -> void:
 	say_label.text = text
@@ -46,6 +61,8 @@ func leave() -> void:
 	target = game.customer_exit()
 
 func _process(delta: float) -> void:
+	if puppet:
+		return
 	if say_t > 0.0:
 		say_t -= delta
 		if say_t <= 0.0:

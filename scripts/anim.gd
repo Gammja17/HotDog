@@ -17,6 +17,7 @@ static func play(ap: AnimationPlayer, suffix: String, speed := 1.0) -> void:
 		return
 	for n in ap.get_animation_list():
 		if n.ends_with("|" + suffix):
+			ap.set_meta("cur", [suffix, speed])  # 온라인 손님 화면에 똑같이 틀어 주려고 기억
 			if ap.current_animation != n:
 				ap.play(n, 0.15, speed)
 			return

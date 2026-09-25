@@ -40,6 +40,9 @@ var scripted := false       # AI가 스스로 움직이지 않는다
 var calm_sniff := false     # 킁킁 게이지가 차도 터지지 않는다
 var calm_tail := false      # 꼬리 게이지가 차도 터지지 않는다
 
+# 온라인 손님 쪽: 방장이 보낸 상태를 그대로 보여 주기만 한다
+var puppet := false
+
 @onready var body_model: Node3D = $Model
 @onready var disguise: Node3D = $Disguise
 @onready var tail_node: Node3D = $Disguise/Tail
@@ -290,14 +293,14 @@ func _process(delta: float) -> void:
 	$Ring.visible = not is_ai
 
 func _physics_process(delta: float) -> void:
-	if stopped:
+	if stopped or puppet:
 		return
 	revealed_t = maxf(revealed_t - delta, 0.0)
 	_instincts(delta)
 	_paws(delta)
 	if eat_left > 0.0:
 		_tick_eat(delta)
-		if not is_ai and Input.get_vector(prefix + "left", prefix + "right", prefix + "up", prefix + "down").length() > 0.1:
+		if not is_ai and _move_input().length() > 0.1:
 			_cancel_eat()
 		return
 	if is_ai:
@@ -306,9 +309,9 @@ func _physics_process(delta: float) -> void:
 		_player()
 
 func _player() -> void:
-	if Input.is_action_just_pressed(prefix + "act"):
+	if _pressed("act"):
 		toggle_hide()
-	if Input.is_action_just_pressed(prefix + "skill"):
+	if _pressed("skill"):
 		if hidden:
 			hold_tail()
 		else:
@@ -316,7 +319,7 @@ func _player() -> void:
 	if hidden:
 		velocity = Vector3.ZERO
 		return
-	var v := Input.get_vector(prefix + "left", prefix + "right", prefix + "up", prefix + "down")
+	var v := _move_input()
 	var dir := Vector3(v.x, 0, v.y)
 	velocity = dir * speed
 	move_and_slide()
@@ -325,6 +328,17 @@ func _player() -> void:
 		Anim.play(ap, "Run", 1.2)
 	else:
 		Anim.play(ap, "Idle")
+
+## 입력: 이 컴퓨터 키보드(p1_/p2_) 또는 온라인 손님(net_)
+func _move_input() -> Vector2:
+	if prefix == "net_":
+		return Net.remote_move
+	return Input.get_vector(prefix + "left", prefix + "right", prefix + "up", prefix + "down")
+
+func _pressed(action: String) -> bool:
+	if prefix == "net_":
+		return Net.consume(action)
+	return Input.is_action_just_pressed(prefix + action)
 
 func _face(dir: Vector3) -> void:
 	dir.y = 0
@@ -340,6 +354,34 @@ func _paws(delta: float) -> void:
 		paw_t = 0.45
 		paw_left -= 1
 		game.add_trace(global_position, "paw")
+
+# ---------------------------------------------------------------- 온라인
+
+func net_state() -> Dictionary:
+	return {
+		"p": [global_position.x, global_position.y, global_position.z], "mr": body_model.rotation.y,
+		"a": ap.get_meta("cur", ["Idle", 1.0]) if ap else ["Idle", 1.0],
+		"hd": hidden, "sl": slot, "dr": disguise.rotation.y, "tl": tail, "sn": sniff,
+		"sy": say_label.text, "sl2": say_label.layers, "b": bar_label.text, "seen": seen, "v": visible,
+	}
+
+func apply_net(d: Dictionary, snap: bool) -> void:
+	var p := Vector3(d.p[0], d.p[1], d.p[2])
+	global_position = p if snap else global_position.lerp(p, 0.35)
+	body_model.rotation.y = lerp_angle(body_model.rotation.y, d.mr, 1.0 if snap else 0.35)
+	Anim.play(ap, d.a[0], d.a[1])
+	hidden = d.hd
+	slot = d.sl
+	body_model.visible = not hidden
+	disguise.visible = hidden
+	disguise.rotation.y = d.dr
+	tail = d.tl
+	sniff = d.sn
+	say_label.text = d.sy
+	say_label.layers = int(d.sl2)
+	bar_label.text = d.b
+	visible = d.v
+	set_seen(d.seen)
 
 static func _flat(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x - b.x, a.z - b.z).length()

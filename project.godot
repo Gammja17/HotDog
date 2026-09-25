@@ -11,6 +11,7 @@ config/features=PackedStringArray("4.7")
 [autoload]
 
 Session="*res://scripts/session.gd"
+Net="*res://scripts/net.gd"
 
 [display]
 
@@ -20,7 +21,7 @@ window/stretch/mode="canvas_items"
 
 [gui]
 
-theme/custom_font="res://assets/fonts/Gaegu-Bold.ttf"
+theme/custom_font="res://assets/fonts/DoHyeon-Regular.ttf"
 
 [layer_names]
 

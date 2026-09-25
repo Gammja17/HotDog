@@ -47,6 +47,9 @@ var script_face := Vector3(0, 0, -1)
 var script_goal = null       # Vector3면 그리로 걸어간다
 var script_working := false
 
+# 온라인 손님 쪽: 방장이 보낸 상태를 그대로 보여 주기만 한다
+var puppet := false
+
 @onready var model: Node3D = $Model
 @onready var agent: NavigationAgent3D = $Agent
 @onready var say_label: Label3D = $Say
@@ -273,7 +276,7 @@ func _physics_process(delta: float) -> void:
 		if say_t <= 0.0:
 			say_label.text = ""
 	call_cd = maxf(call_cd - delta, 0.0)
-	if stopped:
+	if stopped or puppet:
 		return
 	if is_ai:
 		_ai(delta)
@@ -281,7 +284,7 @@ func _physics_process(delta: float) -> void:
 		_player(delta)
 
 func _player(delta: float) -> void:
-	var v := Input.get_vector(prefix + "left", prefix + "right", prefix + "up", prefix + "down")
+	var v := _move_input()
 	var dir := Vector3(v.x, 0, v.y)
 	if work_left > 0.0:
 		if dir.length() > 0.1:
@@ -299,10 +302,22 @@ func _player(delta: float) -> void:
 		Anim.play(ap, "Walk", 1.3)
 	else:
 		Anim.play(ap, "Idle")
-	if Input.is_action_just_pressed(prefix + "act"):
+	if _pressed("act"):
 		act()
-	if Input.is_action_just_pressed(prefix + "skill"):
+	if _pressed("skill"):
 		call_dog()
+
+## 입력: 이 컴퓨터 키보드(p1_/p2_) 또는 온라인 손님(net_)
+func _move_input() -> Vector2:
+	if prefix == "net_":
+		return Net.remote_move
+	return Input.get_vector(prefix + "left", prefix + "right", prefix + "up", prefix + "down")
+
+func _pressed(action: String) -> bool:
+	if prefix == "net_":
+		return Net.consume(action)
+	return Input.is_action_just_pressed(prefix + action)
+
 
 # ---------------------------------------------------------------- AI
 
@@ -577,6 +592,27 @@ func _end_search() -> void:
 	search_list.clear()
 	has_goal = false
 	game.banner("사장님이 다시 장사를 시작했다")
+
+# ---------------------------------------------------------------- 온라인
+
+func net_state() -> Dictionary:
+	return {
+		"p": [global_position.x, global_position.y, global_position.z], "r": rotation.y,
+		"a": ap.get_meta("cur", ["Idle", 1.0]) if ap else ["Idle", 1.0],
+		"h": hand, "hb": hand_bitten, "sy": say_label.text, "b": bar_label.text, "cd": call_cd,
+	}
+
+func apply_net(d: Dictionary, snap: bool) -> void:
+	var p := Vector3(d.p[0], d.p[1], d.p[2])
+	global_position = p if snap else global_position.lerp(p, 0.35)
+	rotation.y = lerp_angle(rotation.y, d.r, 1.0 if snap else 0.35)
+	facing = Vector3(-sin(rotation.y), 0, -cos(rotation.y))
+	Anim.play(ap, d.a[0], d.a[1])
+	if d.h != hand or d.hb != hand_bitten:
+		set_hand(d.h, d.hb)
+	say_label.text = d.sy
+	bar_label.text = d.b
+	call_cd = d.cd
 
 func _update_mark() -> void:
 	if mode == "chase":

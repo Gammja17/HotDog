@@ -40,12 +40,11 @@ func setup(g: Node, m: String) -> void:
 	dog_hint.text = HINTS["dog"]
 	result.visible = false
 	split.visible = m == "duo"
-	%Retry.pressed.connect(func():
-		if next_mode != "":
-			Session.mode = next_mode
-		get_tree().reload_current_scene()
+	%Retry.pressed.connect(_retry)
+	%Menu.pressed.connect(func():
+		Net.leave()
+		get_tree().change_scene_to_file("res://scenes/menu.tscn")
 	)
-	%Menu.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/menu.tscn"))
 
 ## 둘이서: 왼쪽은 셰프 눈(레이어 1), 오른쪽은 강아지 눈(전부)
 func setup_split(xf: Transform3D) -> void:
@@ -65,8 +64,23 @@ func _process(delta: float) -> void:
 		banner_t -= delta
 		if banner_t < 0.6:
 			banner_label.modulate.a = maxf(banner_t / 0.6, 0.0)
-	if result.visible and next_mode == "" and Input.is_physical_key_pressed(KEY_R):
-		get_tree().reload_current_scene()
+	if result.visible and %Retry.visible and next_mode == "" and Input.is_physical_key_pressed(KEY_R):
+		_retry()
+
+func _retry() -> void:
+	if next_mode != "":
+		Session.mode = next_mode
+	if game.online:
+		Net.send({"k": "restart"})  # 상대 화면도 같이 새 판으로
+	get_tree().reload_current_scene()
+
+## 온라인 상대가 나갔을 때
+func show_left() -> void:
+	result.visible = true
+	result_title.text = "친구가 나갔어요"
+	result_body.text = "연결이 끊겼거나 친구가 게임을 껐어요.\n처음 화면에서 방을 다시 만들어 주세요."
+	%Retry.visible = false
+	%Menu.grab_focus()
 
 func refresh() -> void:
 	var t := int(ceil(game.time_left))

@@ -34,21 +34,49 @@ var stations := {}
 var spawn_t := 4.0
 var tutorial: Node = null   # 연습 모드일 때만
 
+# 온라인: 방장이 게임을 돌리고 손님에게 상태를 보낸다. 손님은 받은 대로 그린다.
+var online := false
+var guest := false
+var my_role := ""
+var snap_n := 0
+var snap_t := 0.0
+var last_snap = null
+var net_fc := false          # 손님 쪽: 창구에 주문 기다리는 손님이 있는지
+var net_customers := {}      # 손님 쪽: 손님 id → 인형
+var next_customer_id := 1
+var in_a := 0
+var in_s := 0
+var in_t := 0.0
+var last_in := Vector2.ZERO
+
 func _ready() -> void:
 	for st in get_tree().get_nodes_in_group("station"):
 		stations[st.kind] = st
 	var mode: String = Session.mode
-	# watch: AI끼리 (개발용 관전)
-	chef.setup(self, mode in ["dog", "watch", "tut_dog"], "p2_" if mode == "duo" else "p1_")
-	dog.setup(self, mode in ["chef", "watch", "tut_chef"], "p1_")
+	online = mode == "online"
+	if online:
+		guest = not Net.is_host
+		my_role = Net.role
+		# 내 캐릭터는 이 키보드로, 상대 캐릭터는 네트워크 입력으로 (손님 쪽은 둘 다 인형)
+		chef.setup(self, false, "p1_" if my_role == "chef" else "net_")
+		dog.setup(self, false, "p1_" if my_role == "dog" else "net_")
+		chef.puppet = guest
+		dog.puppet = guest
+		Net.message.connect(_on_net_message)
+		Net.peer_left.connect(_on_peer_left)
+	else:
+		# watch: AI끼리 (개발용 관전)
+		chef.setup(self, mode in ["dog", "watch", "tut_dog"], "p2_" if mode == "duo" else "p1_")
+		dog.setup(self, mode in ["chef", "watch", "tut_chef"], "p1_")
 	chef.global_position = markers.get_node("ChefSpawn").global_position
 	dog.global_position = markers.get_node("DogSpawn").global_position
 
+	var tilt := [-0.4, 0.3, -0.2, 0.5]  # 온라인 두 화면이 같도록 고정 각도
 	for m in get_tree().get_nodes_in_group("decoy_spot"):
 		var h: Node3D = RackScript.new_hotdog()
 		$Decoys.add_child(h)
 		h.global_position = m.global_position
-		h.rotation.y = randf_range(-0.6, 0.6)
+		h.rotation.y = tilt[decoys.size() % tilt.size()]
 		decoys.append(h)
 	for i in [0, 4]:
 		rack.place(i, RackScript.new_hotdog())
@@ -59,6 +87,8 @@ func _ready() -> void:
 		var v: PackedFloat64Array = Session.args["cam"].split_floats(",")
 		cam.look_at_from_position(Vector3(v[0], v[1], v[2]), Vector3(v[3], v[4], v[5]))
 	# 화면: 셰프 화면은 레이어 1만, 강아지 화면은 전부 보인다
+	if online:
+		mode = my_role
 	match mode:
 		"chef", "tut_chef":
 			cam.cull_mask = 1
@@ -87,6 +117,14 @@ func _ready() -> void:
 	dog.stopped = false
 
 func _process(delta: float) -> void:
+	if guest:
+		_guest_process(delta)
+		return
+	if online:
+		snap_t -= delta
+		if snap_t <= 0.0:
+			snap_t = 1.0 / 15.0
+			Net.send(_net_snapshot())
 	if over:
 		return
 	if tutorial == null:
@@ -107,15 +145,16 @@ func _process(delta: float) -> void:
 ## 사람이 셰프일 때: 지금 든 것을 받는 자리만 빛낸다 (빵을 들면 그릴, 핫도그를 들면 진열대와 창구)
 func _update_highlights() -> void:
 	var want: Array = []
-	if not chef.is_ai:
+	var local_chef: bool = not chef.is_ai and (not online or my_role == "chef")
+	if local_chef:
 		match chef.hand:
 			"": want = ["bread"]
 			"bun": want = ["grill"]
 			"grilled": want = ["sauce"]
-			"hotdog": want = ["window"] if front_customer() != null else []
+			"hotdog": want = ["window"] if front_customer() != null or net_fc else []
 	for k in stations:
 		stations[k].set_highlight(k in want)
-	rack.set_highlight(not chef.is_ai and chef.hand == "hotdog")
+	rack.set_highlight(local_chef and chef.hand == "hotdog")
 
 # ---------------------------------------------------------------- 손님
 
@@ -128,6 +167,8 @@ func customer_exit() -> Vector3:
 func spawn_customer() -> void:
 	var c = CUSTOMER.instantiate()
 	c.game = self
+	c.net_id = next_customer_id
+	next_customer_id += 1
 	$Customers.add_child(c)
 	c.global_position = customer_exit()
 	customers.append(c)
@@ -186,6 +227,8 @@ func add_trace(pos: Vector3, kind: String) -> void:
 		for i in 6:
 			_disc(t, Vector3(randf_range(-0.25, 0.25), 0, randf_range(-0.25, 0.25)), randf_range(0.04, 0.08), mat)
 	traces.append(t)
+	if online and not guest:
+		Net.send({"k": "tr", "x": pos.x, "z": pos.z, "kind": kind})
 
 func _disc(parent: Node3D, off: Vector3, r: float, mat: Material) -> void:
 	var mi := MeshInstance3D.new()
@@ -242,6 +285,8 @@ func end_game(reason: String) -> void:
 	chef.stop()
 	if reason != "grab" and reason != "rack":
 		dog.stop()
+	if online and not guest:
+		Net.send({"k": "end", "r": reason})
 	var e: Array = ENDINGS[reason]
 	print("[end] ", reason, " t=", int(GAME_TIME - time_left), " eaten=", eaten, " stars=", stars)
 	hud.show_result(e[0], e[1], e[0].begins_with("셰프"))
@@ -249,3 +294,103 @@ func end_game(reason: String) -> void:
 func banner(text: String) -> void:
 	print("[banner] t=", int(GAME_TIME - time_left), " ", text)
 	hud.banner(text)
+
+# ---------------------------------------------------------------- 온라인
+
+func _net_snapshot() -> Dictionary:
+	snap_n += 1
+	var cs := []
+	for c in $Customers.get_children():
+		cs.append(c.net_state())
+	var rk := []
+	for it in rack.items:
+		rk.append(0 if it == null else (3 if it == dog else (2 if it.get_meta("bitten") else 1)))
+	var dc := []
+	for d in decoys:
+		dc.append(d.get_meta("bitten"))
+	return {
+		"k": "snap", "n": snap_n, "tl": time_left, "st": stars, "ea": eaten, "fc": front_customer() != null,
+		"c": chef.net_state(), "d": dog.net_state(), "cu": cs, "rk": rk, "dc": dc,
+	}
+
+func _guest_process(delta: float) -> void:
+	var s = Net.snapshot
+	if s != null and s != last_snap:
+		_net_apply(s, last_snap == null)
+		last_snap = s
+	# 내 입력을 방장에게 보낸다 (버튼은 누른 횟수로 보내서 놓치지 않게)
+	var v := Input.get_vector("p1_left", "p1_right", "p1_up", "p1_down")
+	if Session.args.has("fake-move"):  # 개발용
+		var f: PackedFloat64Array = Session.args["fake-move"].split_floats(",")
+		v = Vector2(f[0], f[1])
+	var changed := v != last_in
+	if Input.is_action_just_pressed("p1_act") or (Session.args.has("fake-act") and Engine.get_process_frames() % 60 == 0):
+		in_a += 1
+		changed = true
+	if Input.is_action_just_pressed("p1_skill"):
+		in_s += 1
+		changed = true
+	in_t -= delta
+	if changed or in_t <= 0.0:
+		in_t = 0.1
+		last_in = v
+		Net.send({"k": "in", "mx": v.x, "my": v.y, "a": in_a, "s": in_s})
+	_update_highlights()
+	hud.refresh()
+
+func _net_apply(s: Dictionary, first: bool) -> void:
+	time_left = s.tl
+	stars = s.st
+	eaten = int(s.ea)
+	net_fc = s.fc
+	chef.apply_net(s.c, first)
+	dog.apply_net(s.d, first)
+	for i in rack.items.size():
+		var code := int(s.rk[i])
+		var it = rack.items[i]
+		var cur := 0 if it == null else (3 if it == dog else (2 if it.get_meta("bitten") else 1))
+		if cur == code:
+			continue
+		var old = rack.take(i)
+		if old is Node3D and old != dog:
+			old.queue_free()
+		if code == 1 or code == 2:
+			rack.place(i, RackScript.new_hotdog(code == 2))
+		elif code == 3:
+			rack.items[i] = dog
+	for i in decoys.size():
+		if decoys[i].get_meta("bitten") != s.dc[i]:
+			rack.set_bitten(decoys[i], s.dc[i])
+	var alive := {}
+	for d in s.cu:
+		var id := int(d[0])
+		alive[id] = true
+		var c = net_customers.get(id)
+		if c == null:
+			c = CUSTOMER.instantiate()
+			c.game = self
+			c.puppet = true
+			c.hue = d[8]
+			$Customers.add_child(c)
+			c.position = Vector3(d[1], 0, d[2])
+			net_customers[id] = c
+		c.apply_net(d)
+	for id in net_customers.keys():
+		if not alive.has(id):
+			net_customers[id].queue_free()
+			net_customers.erase(id)
+
+func _on_net_message(d: Dictionary) -> void:
+	match d.k:
+		"tr":
+			add_trace(Vector3(d.x, 0, d.z), d.kind)
+		"end":
+			over = true
+			var e: Array = ENDINGS[d.r]
+			hud.show_result(e[0], e[1], e[0].begins_with("셰프"))
+
+func _on_peer_left() -> void:
+	over = true
+	chef.stop()
+	dog.stop()
+	hud.show_left()

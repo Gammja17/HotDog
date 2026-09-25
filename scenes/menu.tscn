@@ -78,7 +78,14 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(420, 60)
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "둘이서 (한 화면 나눠 보기)"
+text = "둘이서 한 컴퓨터로 (화면 나눔)"
+
+[node name="Online" type="Button" parent="Center/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "온라인으로 친구랑 하기"
 
 [node name="Practice" type="HBoxContainer" parent="Center/VBox"]
 layout_mode = 2
