@@ -152,6 +152,7 @@ func hide_now() -> void:
 	if s >= 0:
 		slot = s
 		game.rack.place(s, self)
+		Skeam.unlock(game, "rack_hide", "dog")
 		shape.disabled = true
 		var tw := create_tween()
 		tw.tween_property(self, "global_position", game.rack.slot_pos(s), 0.2)

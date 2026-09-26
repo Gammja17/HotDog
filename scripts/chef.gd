@@ -229,6 +229,7 @@ func apply_cook_result(good: bool) -> void:
 		work_left = maxf(work_left - c.good, 0.001)
 		cook_flash = "좋아!"
 		cook_flips += 1
+		Skeam.unlock(game, "perfect_cook", "chef")
 		cook_zone = randf_range(0.2, 0.8)
 	else:
 		var add := minf(c.bad, c.base * COOK_MAX_PENALTY - cook_penalty)

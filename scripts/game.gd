@@ -251,6 +251,7 @@ func serve(bitten: bool) -> void:
 	else:
 		stars = minf(stars + 0.5, MAX_STARS)
 		sold += 1
+		Skeam.unlock(self, "first_sale", "chef")
 		if tutorial == null and sold >= SALES_GOAL:
 			end_game("sold")
 
@@ -297,6 +298,7 @@ func customer_scared(c) -> void:
 	_reflow()
 	chef.on_disturbance(c.global_position)
 	_tut_event("scared")
+	Skeam.unlock(self, "bark_scare", "dog")
 
 ## 강아지가 테이블 손님 핫도그를 뺏어 먹었다
 func customer_robbed(c) -> void:
@@ -304,6 +306,7 @@ func customer_robbed(c) -> void:
 	make_noise(c.global_position, 10.0)
 	chef.on_disturbance(c.global_position)
 	banner("손님 핫도그를 강아지가 뺏어 먹었다! (별점 -0.5)")
+	Skeam.unlock(self, "steal", "dog")
 	_lose_star(0.5)
 
 ## 손님이 떨어뜨린 핫도그: 바닥 핫도그가 하나 늘어난다 (강아지 먹이이자 숨을 곳)
@@ -432,6 +435,7 @@ func catch_dog(how: String) -> void:
 	# 잡기는 승리가 아니다: 먹은 소시지 두 개를 뱉게 하고, 장터로 던진다
 	caught += 1
 	eaten = maxi(eaten - 2, 0)
+	Skeam.unlock(self, "caught_dog", "chef")
 	dog.caught()
 	if dog.slot >= 0:
 		rack.items[dog.slot] = null
@@ -447,6 +451,7 @@ func catch_dog(how: String) -> void:
 func dog_ate() -> void:
 	eaten += 1
 	_tut_event("ate")
+	Skeam.unlock(self, "first_bite", "dog")
 	if tutorial == null and eaten >= EAT_GOAL:
 		end_game("full")
 
@@ -462,6 +467,18 @@ func end_game(reason: String) -> void:
 	var e: Array = ENDINGS[reason]
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	print("[end] ", reason, " t=", int(GAME_TIME - time_left), " eaten=", eaten, " stars=", stars)
+	match reason:
+		"sold":
+			Skeam.unlock(self, "chef_win", "chef")
+			if stars >= MAX_STARS:
+				Skeam.unlock(self, "chef_flawless", "chef")
+		"full":
+			Skeam.unlock(self, "dog_full", "dog")
+		"time", "stars":
+			Skeam.unlock(self, "dog_sabotage", "dog")
+	if online:
+		Skeam.unlock(self, "online", "chef")  # 내 몫은 여기서, 친구 몫은 친구에게 보낸다
+		Skeam.unlock(self, "online", "dog")
 	hud.show_result(e[0], e[1], e[0].begins_with("셰프"))
 
 func banner(text: String) -> void:
@@ -599,6 +616,8 @@ func _on_net_message(d: Dictionary) -> void:
 			sfx(d.n, Vector3(d.x, d.y, d.z), d.db, d.p, false)
 		"banner":
 			hud.banner(d.t)
+		"ach":
+			Skeam.send(d.id)
 		"end":
 			over = true
 			var e: Array = ENDINGS[d.r]
