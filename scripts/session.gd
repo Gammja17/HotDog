@@ -43,9 +43,10 @@ func _debug_args() -> void:
 		Net.join.call_deferred(args["net-join"])
 	if args.has("play"):  # 메뉴를 건너뛰고 바로 한 판
 		get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
-	if args.has("shot"):
+	if args.has("shot") or args.has("wait"):  # --wait만 주면 화면 없이(headless) 돌리고 끝낸다
 		await get_tree().create_timer(float(args.get("wait", "3"))).timeout
-		get_viewport().get_texture().get_image().save_png(args["shot"])
+		if args.has("shot"):
+			get_viewport().get_texture().get_image().save_png(args["shot"])
 		get_tree().quit()
 
 ## 연습을 끝냈거나, 처음 물었을 때 "바로 시작"을 골랐는지

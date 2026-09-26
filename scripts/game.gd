@@ -429,15 +429,15 @@ func catch_dog(how: String) -> void:
 		chef.stop()
 		_tut_event("caught")
 		return
-	# 잡기는 승리가 아니다: 먹은 소시지 하나를 뱉게 하고, 장터로 던진다
+	# 잡기는 승리가 아니다: 먹은 소시지 두 개를 뱉게 하고, 장터로 던진다
 	caught += 1
-	eaten = maxi(eaten - 1, 0)
+	eaten = maxi(eaten - 2, 0)
 	dog.caught()
 	if dog.slot >= 0:
 		rack.items[dog.slot] = null
 		dog.slot = -1
 	chef.after_catch()
-	banner("강아지를 잡아 밖으로 던졌다! 먹은 소시지 하나를 뱉어 냈다 (%d번째)" % caught)
+	banner("강아지를 잡아 밖으로 던졌다! 먹은 소시지 두 개를 뱉어 냈다 (%d번째)" % caught)
 	await get_tree().create_timer(0.9).timeout
 	if over or not is_inside_tree():
 		return

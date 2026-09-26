@@ -566,7 +566,7 @@ func _ai(delta: float) -> void:
 			if _flat(global_position, dog.global_position) < 0.9 and not dog.in_slot():
 				game.catch_dog("grab")
 				return
-			_move_to(last_seen, 3.9, delta)
+			_move_to(last_seen, 4.0, delta)
 			if lost_t > 0.9:
 				mode = "search"
 				search_t = 12.0

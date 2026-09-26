@@ -3,9 +3,9 @@ extends CharacterBody3D
 ## 핫도그로 변장해 숨고, 몰래 소시지를 먹는다. 본능(킁킁, 꼬리)을 못 참으면 들킨다.
 
 const SNIFF_RANGE := 2.4
-const EAT_TIME := {"rack": 1.5, "decoy": 1.5, "fridge": 2.2, "customer": 1.5}
+const EAT_TIME := {"rack": 2.7, "decoy": 2.2, "fridge": 3.0, "customer": 2.7}
 const BARK_CD := 12.0
-const FRIDGE_STOCK := 3
+const FRIDGE_STOCK := 1
 
 var game: Node
 var is_ai := true
@@ -61,7 +61,7 @@ func setup(g: Node, ai: bool, input_prefix: String) -> void:
 	game = g
 	is_ai = ai
 	prefix = input_prefix
-	speed = 3.6 if ai else 4.0
+	speed = 3.4 if ai else 3.5
 
 func _ready() -> void:
 	ap = Anim.setup(body_model)

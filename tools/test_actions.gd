@@ -72,7 +72,7 @@ func _run() -> void:
 	dog.global_position = Vector3(0, 0, 1.55)
 	var eaten: int = g.eaten
 	dog.try_eat()
-	await wait(1.7)
+	await wait(2.9)  # 진열대 먹기 2.7초
 	check(g.eaten == eaten + 1, "강아지가 진열대 핫도그를 먹는다")
 	check(g.traces.size() > 0, "부스러기 흔적이 남는다")
 	dog.toggle_hide()
@@ -95,7 +95,7 @@ func _run() -> void:
 	var eaten0: int = g.eaten
 	chef.act()
 	check(g.caught == 1 and not g.over, "보고 있는 바로 앞 강아지를 잡아도 게임은 계속된다")
-	check(g.eaten == maxi(eaten0 - 1, 0), "잡히면 먹은 소시지 하나를 뱉는다")
+	check(g.eaten == maxi(eaten0 - 2, 0), "잡히면 먹은 소시지 두 개를 뱉는다")
 	await wait(1.8)
 	check(not g.chef.in_truck(dog.global_position), "잡힌 강아지는 장터로 던져진다")
 	await wait(2.5)
@@ -130,7 +130,7 @@ func _run() -> void:
 	var eaten1: int = g.eaten
 	stars0 = g.stars
 	dog.try_eat()
-	await wait(1.8)
+	await wait(2.9)  # 손님 핫도그 먹기 2.7초
 	check(g.eaten == eaten1 + 1 and g.stars < stars0 and not cu.has_food(), "강아지가 손님 핫도그를 뺏어 먹는다 (별점 -0.5)")
 
 	# 짖기: 줄 선 손님이 겁먹고 떠난다
