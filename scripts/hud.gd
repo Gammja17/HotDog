@@ -4,7 +4,7 @@ extends CanvasLayer
 const HINTS := {
 	"chef_p1": "마우스 둘러보기 (화면 클릭, Esc 풀기)  /  WASD 걷기  /  Space 행동  /  E \"누가 착한 아이지~?\"",
 	"chef_p2": "방향키 위아래 걷기, 좌우 돌기  /  Enter 행동  /  오른쪽 Shift \"누가 착한 아이지~?\"",
-	"dog": "WASD 이동  /  Space 변장·나오기  /  E 먹기 (숨었을 땐 연타로 꼬리 참기)  /  Q 짖기 (손님 겁주기)",
+	"dog": "WASD 이동  /  Space 변장/나오기  /  E 먹기 (숨었을 땐 연타로 꼬리 참기)  /  Q 짖기 (손님 겁주기)",
 }
 const NEXT := {"": "빵, 그릴, 소스 순서로 만들자", "bun": "그릴로!", "grilled": "소스로!", "hotdog": "진열대나 판매 창구로!"}
 
